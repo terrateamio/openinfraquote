@@ -19,19 +19,25 @@ module Cli = struct
     C.Cmd.v (C.Cmd.info "price" ~doc ~exits)
       C.Term.(const f $ pricing_root $ resource_file)
 
+
 end
 
-let run pricing_root resource_file =
+let run pricing_root resource_files =
   let open Printf in
   let dir_path =
     match pricing_root with
     | Some dirpath  -> dirpath
     | None -> Sys.getenv "PWD"
   in
-  let resource_file_str = String.concat ", " resource_file in
-  printf "Resource file %s\n" resource_file_str;
+  let resource_file = String.concat ", " resource_files in
+  printf "Resource file %s\n" resource_file;
   printf "Pricing root %s\n" dir_path;
-  printf "Dev Data Root %s\n" Infraquote.data_root
+
+  printf "Dev Data Root %s\n" Infraquote.data_root;
+
+  printf "Keys 1: %s\n" @@ Match_set.to_keys @@ Tf.Resource.to_match_set resource_file;
+  printf "Keys 2: %s\n" @@ Match_set.to_keys resource_files;
+  List.iter (printf "Res 1: %s\n") @@ Tf.Resource.to_match_set resource_file
 
 let () =
   let info = Cmdliner.Cmd.info "oiq" in
