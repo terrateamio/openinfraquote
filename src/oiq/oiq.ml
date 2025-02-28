@@ -30,7 +30,8 @@ let run pricing_root resource_file =
   in
   let resource_file_str = String.concat ", " resource_file in
   printf "Resource file %s\n" resource_file_str;
-  printf "Pricing root %s\n" dir_path
+  printf "Pricing root %s\n" dir_path;
+  printf "Dev Data Root %s\n" Infraquote.data_root
 
 let () =
   let info = Cmdliner.Cmd.info "oiq" in
