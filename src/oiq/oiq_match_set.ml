@@ -7,7 +7,14 @@ type of_string_err = [ `Error ] [@@deriving show]
 let of_list l = Ok (String_set.of_list l)
 
 let of_string s =
-  let keys = CCString.split_on_char '&' s in
+  let keys = Uri.pct_decode s |> CCString.split_on_char '&' in
   of_list keys
+
+let to_keys params =
+  let encode_param (key, value) =
+    let encode s = Uri.pct_encode s in
+    encode key ^ "=" ^ encode value
+  in
+  params |> List.map encode_param
 
 let subset ~super sub = String_set.subset sub super
