@@ -12,9 +12,10 @@ let of_string s =
 
 let to_keys params =
   let encode_param (key, value) =
-    let encode s = Uri.pct_encode s in
+    let encode s = Uri.pct_encode ~component:`Query_key s in
     encode key ^ "=" ^ encode value
   in
   params |> List.map encode_param
 
+let to_list t = String_set.to_list t
 let subset ~super sub = String_set.subset sub super
