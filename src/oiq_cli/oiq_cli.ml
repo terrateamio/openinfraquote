@@ -5,32 +5,37 @@ module Cli = struct
   let resource_file =
     let docv = "RESOURCE_FILE" in
     let doc = "The input file that describes the infrastructure: eg. plan or state file." in
-    C.Arg.(non_empty & pos_all string [] & info [] ~docv ~doc)
+    C.Arg.(non_empty & pos_all file [] & info [] ~docv ~doc)
 
   (* -p | --pricing-root <dirpath> *)
   let pricing_root =
     let docv = "PRICING_ROOT" in
     let doc = "The top of the directory that stores the pricing CSVs." in
-    C.Arg.(value & opt (some string) None & info [ "p"; "pricing-root" ] ~docv ~doc)
+    C.Arg.(required & opt (some dir) None & info [ "p"; "pricing-root" ] ~docv ~doc)
 
-  let price_cmd f =
-    let doc = "Pricing commands" in
+  (* -o | --output-path <filepath> *)
+  let output_path =
+    let docv = "OUTPUT_PATH" in
+    let doc = "The path for writing matched price info." in
+    C.Arg.(value & opt (some string) None & info [ "o"; "output-path" ] ~docv ~doc)
+
+  let match_cmd f =
+    let doc = "Price matching commands" in
     let exits = C.Cmd.Exit.defaults in
-    C.Cmd.v (C.Cmd.info "price" ~doc ~exits) C.Term.(const f $ pricing_root $ resource_file)
+    C.Cmd.v
+      (C.Cmd.info "match" ~doc ~exits)
+      C.Term.(const f $ pricing_root $ resource_file $ output_path)
 end
 
-let run pricing_root resource_files =
-  let open Printf in
-  let dir_path =
-    match pricing_root with
-    | Some dirpath -> dirpath
-    | None -> Sys.getenv "PWD"
-  in
-  let resource_file = String.concat ", " resource_files in
-  printf "Resource file %s\n" resource_file;
-  printf "Pricing root %s\n" dir_path;
-  printf "Dev Data Root %s\n" Oiq.data_root
+let run pricing_root resource_files output_path =
+  Oiq.match_
+    ~pricing_root
+    ~resource_files
+    ~output:
+      (match output_path with
+      | Some path -> open_out path
+      | None -> stdout)
 
 let () =
   let info = Cmdliner.Cmd.info "oiq" in
-  exit @@ Cmdliner.Cmd.eval @@ Cmdliner.Cmd.group info [ Cli.price_cmd run ]
+  exit @@ Cmdliner.Cmd.eval @@ Cmdliner.Cmd.group info [ Cli.match_cmd run ]
