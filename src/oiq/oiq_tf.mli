@@ -4,6 +4,7 @@ module Resource : sig
   type t
 
   val to_match_set : t -> Oiq_match_set.t
+  val to_yojson : t -> Yojson.Safe.t
 end
 
 module Plan : sig
