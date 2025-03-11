@@ -23,6 +23,7 @@ module Resource = struct
   type t = { data : Yojson.Safe.t }
 
   let of_yojson data = { data }
+  let to_yojson t = t.data
 
   let rec flatten ?(prefix = "") (json : Yojson.Safe.t) : (string * string) list =
     match json with
