@@ -1,3 +1,7 @@
+module Price : sig
+  type t
+end
+
 module Product : sig
   type t
 
