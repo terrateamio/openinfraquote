@@ -5,4 +5,3 @@ type t = {
 [@@deriving to_yojson]
 
 let make resource product = { resource; product }
-let to_yojson t = to_yojson t
