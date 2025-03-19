@@ -8,15 +8,17 @@ module Resource : sig
 end
 
 module Plan : sig
+  type err = [ `Invalid_plan of string ] [@@deriving show]
   type t
 
-  val of_yojson : Yojson.Safe.t -> (t, [> `Invalid_plan ]) result
+  val of_yojson : Yojson.Safe.t -> (t, [> err ]) result
   val resources : t -> Resource.t list
 end
 
 module State : sig
+  type err = [ `Invalid_state of string ] [@@deriving show]
   type t
 
-  val of_yojson : Yojson.Safe.t -> (t, [> `Invalid_state ]) result
+  val of_yojson : Yojson.Safe.t -> (t, [> err ]) result
   val resources : t -> Resource.t list
 end
