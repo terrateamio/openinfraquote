@@ -1,10 +1,9 @@
 val type_ : Yojson.Safe.t -> [ `Plan | `State | `Unknown ]
 
 module Resource : sig
-  type t
+  type t [@@deriving yojson]
 
   val to_match_set : t -> Oiq_match_set.t
-  val to_yojson : t -> Yojson.Safe.t
 end
 
 module Plan : sig

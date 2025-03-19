@@ -12,9 +12,8 @@ module Product : sig
     ]
   [@@deriving show]
 
-  type t
+  type t [@@deriving yojson]
 
   val of_row : string list -> (t, [> of_row_err ]) result
   val to_match_set : t -> Oiq_match_set.t
-  val to_yojson : t -> Yojson.Safe.t
 end

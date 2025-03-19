@@ -39,11 +39,11 @@ let match_ ~pricing_root ~resource_files ~output =
             acc
       | Error err -> raise (Match_err (`Product_parse_err err))
     in
-    let product_resource_matches =
-      CCList.map (fun (res, _, products) -> (res, products))
+    let matches =
+      CCList.map (fun (res, _, products) -> Oiq_match_file.Match.make res products)
       @@ Csv.fold_left ~f:match_pricesheet ~init:resource_price_acc csv_stream
     in
-    let match_file = Oiq_match_file.make product_resource_matches in
+    let match_file = Oiq_match_file.make matches in
     Yojson.Safe.pretty_to_channel output @@ Oiq_match_file.to_yojson match_file;
     Ok ()
   with Match_err err -> Error err
