@@ -78,7 +78,17 @@ let match_ pricing_root resource_files output_path =
       Logs.err (fun m -> m "%a" Oiq.pp_match_err err);
       exit 1
 
-let price usage input = raise (Failure "nyi")
+let price usage input =
+  let with_input f =
+    match input with
+    | Some fname -> CCIO.with_in fname f
+    | None -> f stdin
+  in
+  match with_input (fun input -> Oiq.price ~input ()) with
+  | Ok priced -> print_endline @@ Oiq_pricer.pretty_to_string priced
+  | Error err ->
+      Logs.err (fun m -> m "%a" Oiq.pp_price_err err);
+      exit 1
 
 let () =
   let info = Cmdliner.Cmd.info "oiq" in
