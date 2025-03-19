@@ -8,6 +8,10 @@ module Match = struct
   let make resource products = { resource; products }
 end
 
-type t = { matches : Match.t list } [@@deriving yojson]
+type t = {
+  matches : Match.t list;
+  date : string;
+}
+[@@deriving yojson]
 
-let make matches = { matches }
+let make matches = { matches; date = ISO8601.Permissive.string_of_datetime (Unix.gettimeofday ()) }
