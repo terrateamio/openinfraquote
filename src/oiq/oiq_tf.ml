@@ -23,7 +23,47 @@ module Resource = struct
   type t = { data : Yojson.Safe.t }
 
   let of_yojson data = { data }
-  let to_match_set t = raise (Failure "NYI")
+  let to_yojson t = t.data
+
+  let rec flatten ?(prefix = "") (json : Yojson.Safe.t) : (string * string) list =
+    match json with
+    | `Assoc fields ->
+        List.fold_left
+          (fun acc (key, value) ->
+            let new_prefix = if prefix = "" then key else prefix ^ "." ^ key in
+            let flattened = flatten ~prefix:new_prefix value in
+            acc @ flattened)
+          []
+          fields
+    | `List items ->
+        List.mapi
+          (fun idx item ->
+            let new_prefix = prefix ^ "." ^ string_of_int idx in
+            flatten ~prefix:new_prefix item)
+          items
+        |> List.concat
+    | `String s -> [ (prefix, s) ]
+    | `Int i -> [ (prefix, string_of_int i) ]
+    | `Float f -> [ (prefix, string_of_float f) ]
+    | `Bool b -> [ (prefix, string_of_bool b) ]
+    | `Null -> [ (prefix, "null") ]
+    | `Intlit s -> [ (prefix, s) ]
+    | `Tuple items ->
+        List.mapi
+          (fun idx item ->
+            let new_prefix =
+              if prefix = "" then string_of_int idx else prefix ^ "." ^ string_of_int idx
+            in
+            flatten ~prefix:new_prefix item)
+          items
+        |> List.concat
+    | `Variant (name, Some content) ->
+        let new_prefix = if prefix = "" then name else prefix ^ "." ^ name in
+        flatten ~prefix:new_prefix content
+    | `Variant (name, None) -> [ (prefix ^ "." ^ name, "") ]
+
+  let to_match_set t =
+    CCResult.get_exn @@ Oiq_match_set.of_list @@ Oiq_match_set.to_keys @@ flatten t.data
 end
 
 let rec load_resources json =
