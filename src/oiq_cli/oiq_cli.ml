@@ -7,11 +7,11 @@ module Cli = struct
     let doc = "The input file that describes the infrastructure: eg. plan or state file." in
     C.Arg.(non_empty & pos_all file [] & info [] ~docv ~doc)
 
-  (* -p | --pricing-root <dirpath> *)
-  let pricing_root =
-    let docv = "PRICING_ROOT" in
-    let doc = "The top of the directory that stores the pricing CSVs." in
-    C.Arg.(required & opt (some dir) None & info [ "p"; "pricing-root" ] ~docv ~doc)
+  (* -p | --pricingsheet <dirpath> *)
+  let pricesheet =
+    let docv = "PRICING_SHEET" in
+    let doc = "Path to the pricing CSV." in
+    C.Arg.(required & opt (some file) None & info [ "p"; "pricesheet" ] ~docv ~doc)
 
   (* -o | --output-path <filepath> *)
   let output =
@@ -22,9 +22,7 @@ module Cli = struct
   let match_cmd f =
     let doc = "Match resource to pricing rows." in
     let exits = C.Cmd.Exit.defaults in
-    C.Cmd.v
-      (C.Cmd.info "match" ~doc ~exits)
-      C.Term.(const f $ pricing_root $ resource_file $ output)
+    C.Cmd.v (C.Cmd.info "match" ~doc ~exits) C.Term.(const f $ pricesheet $ resource_file $ output)
 
   let usage =
     let docv = "USAGE_FILE" in
@@ -62,11 +60,11 @@ let setup_log () =
   Logs.set_reporter (reporter Format.std_formatter);
   Logs.set_level (Some Logs.Debug)
 
-let match_ pricing_root resource_files output_path =
+let match_ pricesheet resource_files output_path =
   setup_log ();
   match
     Oiq.match_
-      ~pricing_root
+      ~pricesheet
       ~resource_files
       ~output:
         (match output_path with
