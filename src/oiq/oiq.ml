@@ -6,6 +6,8 @@ type match_err =
   ]
 [@@deriving show]
 
+type price_err = [ `Invalid_match_file_err of string ] [@@deriving show]
+
 exception Match_err of match_err
 
 let match_ ~pricing_root ~resource_files ~output =
@@ -47,3 +49,13 @@ let match_ ~pricing_root ~resource_files ~output =
     Yojson.Safe.pretty_to_channel output @@ Oiq_match_file.to_yojson match_file;
     Ok ()
   with Match_err err -> Error err
+
+let price ~input () =
+  let open CCResult.Infix in
+  let read_match_file =
+    try
+      let json = Yojson.Safe.from_channel input in
+      CCResult.map_err (fun msg -> `Invalid_match_file_err msg) (Oiq_match_file.of_yojson json)
+    with Yojson.Json_error msg -> Error (`Invalid_match_file_err msg)
+  in
+  read_match_file >>= fun match_file -> Ok (Oiq_pricer.price match_file)

@@ -1,5 +1,8 @@
 module Price : sig
-  type t
+  type t =
+    | Per_hour of float
+    | Per_operation of float
+    | Per_data of float
 end
 
 module Product : sig
@@ -17,4 +20,5 @@ module Product : sig
 
   val of_row : string list -> (t, [> of_row_err ]) result
   val to_match_set : t -> Oiq_match_set.t
+  val prices : t -> Price.t list
 end

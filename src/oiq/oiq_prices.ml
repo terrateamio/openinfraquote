@@ -109,4 +109,5 @@ module Product = struct
     | row -> Error (`Invalid_row_err row)
 
   let to_match_set t = t.match_set
+  let prices t = t.price_info
 end

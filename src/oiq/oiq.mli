@@ -6,8 +6,12 @@ type match_err =
   ]
 [@@deriving show]
 
+type price_err = [ `Invalid_match_file_err of string ] [@@deriving show]
+
 val match_ :
   pricing_root:string ->
   resource_files:string list ->
   output:out_channel ->
   (unit, match_err) result
+
+val price : input:in_channel -> unit -> (Oiq_pricer.t, price_err) result
