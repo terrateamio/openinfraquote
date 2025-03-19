@@ -1,4 +1,12 @@
 module Price = struct
+  module P = struct
+    type t = {
+      usd : string; [@key "USD"]
+      unit : string;
+    }
+    [@@deriving yojson { strict = false }]
+  end
+
   type err =
     [ `Invalid_usd_err of Yojson.Safe.t
     | `Invalid_unit_err of Yojson.Safe.t
@@ -9,27 +17,53 @@ module Price = struct
   type t =
     | Per_hour of float
     | Per_operation of float
-    | Reserved of float
+    | Per_data of float
   [@@deriving eq]
 
-  let to_yojson t = raise (Failure "POOP")
+  let to_yojson = function
+    | Per_hour amount -> P.to_yojson { P.usd = CCFloat.to_string amount; unit = "Hrs" }
+    | Per_operation amount -> P.to_yojson { P.usd = CCFloat.to_string amount; unit = "Op" }
+    | Per_data amount -> P.to_yojson { P.usd = CCFloat.to_string amount; unit = "GB" }
 
   let of_row json =
-    let module P = struct
-      type t = {
-        usd : string; [@key "USD"]
-        unit : string;
-      }
-      [@@deriving of_yojson { strict = false }]
-    end in
     let open CCResult.Infix in
     CCResult.map_err (fun msg -> `Invalid_price_err (json, msg)) (P.of_yojson json)
     >>= function
-    | { P.usd; unit = "hr" } -> (
+    | {
+        P.usd;
+        unit =
+          ( "Hrs"
+          | "vCPU-hour"
+          | "vCPU-Months"
+          | "vCPU-Hours"
+          | "ACU-Hr"
+          | "ACU-hour"
+          | "ACU-Months"
+          | "Bucket-Mo" );
+      } -> (
         match CCFloat.of_string_opt usd with
         | Some amount -> Ok (Per_hour amount)
         | None -> Error (`Invalid_usd_err json))
-    | { P.usd; unit = "op" } -> (
+    | {
+        P.usd;
+        unit = "GB-Mo" | "MBPS-Mo" | "GB" | "Objects" | "Gigabyte Month" | "Tag-Mo" | "GB-month";
+      } -> (
+        match CCFloat.of_string_opt usd with
+        | Some amount -> Ok (Per_data amount)
+        | None -> Error (`Invalid_usd_err json))
+    | {
+        P.usd;
+        unit =
+          ( "Op"
+          | "IOPS-Mo"
+          | "Requests"
+          | "API Requests"
+          | "IOs"
+          | "Jobs"
+          | "Updates"
+          | "CR-Hr"
+          | "API Calls" );
+      } -> (
         match CCFloat.of_string_opt usd with
         | Some amount -> Ok (Per_operation amount)
         | None -> Error (`Invalid_usd_err json))
