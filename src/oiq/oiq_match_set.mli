@@ -1,4 +1,4 @@
-type t
+type t [@@deriving yojson, eq]
 type of_list_err = [ `Error ] [@@deriving show]
 type of_string_err = [ `Error ] [@@deriving show]
 
