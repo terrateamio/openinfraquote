@@ -79,13 +79,14 @@ module Product = struct
     | `Invalid_usd_err of Yojson.Safe.t
     | `Invalid_unit_err of Yojson.Safe.t
     | `Invalid_price_err of Yojson.Safe.t * string
+    | `Invalid_match_set_err of string
     ]
   [@@deriving show]
 
   type t = {
     service : string;
     product_family : string;
-    match_set_str : string;
+    match_set : Oiq_match_set.t;
     price_info : Price.t list;
   }
   [@@deriving yojson, eq]
@@ -99,9 +100,13 @@ module Product = struct
             type t = Price.t list [@@deriving of_yojson { strict = false }]
           end in
           CCResult.map_err (fun msg -> `Invalid_price_json_err msg) (P.of_yojson json)
-          >>= fun price_info -> Ok { service; product_family; match_set_str; price_info }
+          >>= fun price_info ->
+          CCResult.map_err
+            (fun _ -> `Invalid_match_set_err match_set_str)
+            (Oiq_match_set.of_string match_set_str)
+          >>= fun match_set -> Ok { service; product_family; match_set; price_info }
         with Yojson.Json_error msg -> Error (`Invalid_price_json_err msg))
     | row -> Error (`Invalid_row_err row)
 
-  let to_match_set t = CCResult.get_exn @@ Oiq_match_set.of_string t.match_set_str
+  let to_match_set t = t.match_set
 end

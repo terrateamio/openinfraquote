@@ -9,6 +9,7 @@ module Product : sig
     | `Invalid_usd_err of Yojson.Safe.t
     | `Invalid_unit_err of Yojson.Safe.t
     | `Invalid_price_err of Yojson.Safe.t * string
+    | `Invalid_match_set_err of string
     ]
   [@@deriving show]
 
