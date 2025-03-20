@@ -19,6 +19,14 @@ module Cli = struct
     let doc = "The path for writing matched price info, stdout if not specified." in
     C.Arg.(value & opt (some string) None & info [ "o"; "output" ] ~docv ~doc)
 
+  let output_format =
+    let docv = "FORMAT" in
+    let doc = "Format of output (text or json)." in
+    C.Arg.(
+      value
+      & opt (enum [ ("text", `Text); ("json", `Json) ]) `Text
+      & info [ "f"; "format" ] ~docv ~doc)
+
   let match_cmd f =
     let doc = "Match resource to pricing rows." in
     let exits = C.Cmd.Exit.defaults in
@@ -37,7 +45,7 @@ module Cli = struct
   let price_cmd f =
     let doc = "Price a match." in
     let exits = C.Cmd.Exit.defaults in
-    C.Cmd.v (C.Cmd.info "price" ~doc ~exits) C.Term.(const f $ usage $ input)
+    C.Cmd.v (C.Cmd.info "price" ~doc ~exits) C.Term.(const f $ usage $ input $ output_format)
 end
 
 let reporter ppf =
@@ -47,7 +55,6 @@ let reporter ppf =
       k ()
     in
     let with_stamp h tags k ppf fmt =
-      (* TODO: Make this use the proper Abb time *)
       let time = Unix.gettimeofday () in
       let time_str = ISO8601.Permissive.string_of_datetime time in
       Format.kfprintf k ppf ("[%s] %a @[" ^^ fmt ^^ "@]@.") time_str Logs.pp_header (level, h)
@@ -76,7 +83,7 @@ let match_ pricesheet resource_files output_path =
       Logs.err (fun m -> m "%a" Oiq.pp_match_err err);
       exit 1
 
-let price usage input =
+let price usage input output_format =
   let with_input f =
     match input with
     | Some fname -> CCIO.with_in fname f
@@ -88,7 +95,10 @@ let price usage input =
     | None -> f None
   in
   match with_input (fun input -> maybe_with_usage (fun usage -> Oiq.price ?usage ~input ())) with
-  | Ok priced -> print_endline @@ Oiq_pricer.pretty_to_string priced
+  | Ok priced -> (
+      match output_format with
+      | `Text -> print_endline @@ Oiq_pricer.pretty_to_string priced
+      | `Json -> print_endline @@ Yojson.Safe.pretty_to_string @@ Oiq_pricer.to_yojson priced)
   | Error err ->
       Logs.err (fun m -> m "%a" Oiq.pp_price_err err);
       exit 1

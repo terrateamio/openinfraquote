@@ -2,6 +2,7 @@ type t = {
   date : string;
   monthly_total : float;
 }
+[@@deriving to_yojson]
 
 let hours = CCFun.(Oiq_usage.Usage.hours %> CCOption.get_or ~default:0 %> CCFloat.of_int)
 let operations = CCFun.(Oiq_usage.Usage.operations %> CCOption.get_or ~default:0 %> CCFloat.of_int)
