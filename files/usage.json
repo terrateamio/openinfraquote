@@ -1,0 +1,14 @@
+[
+  {
+    "description": "Default AWS EC2 Instance (according to ChatGPT)",
+    "match_set": [
+      {
+        "key": "type",
+        "value": "aws_instance"
+      }
+    ],
+    "usage": {
+      "hours": 730
+    }
+  }
+]
