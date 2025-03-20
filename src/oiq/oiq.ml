@@ -10,7 +10,7 @@ type price_err = [ `Invalid_match_file_err of string ] [@@deriving show]
 
 exception Match_err of match_err
 
-let match_ ~pricing_root ~resource_files ~output =
+let match_ ~pricesheet ~resource_files ~output =
   let open CCResult.Infix in
   let extract_one resource_file =
     try
@@ -27,28 +27,29 @@ let match_ ~pricing_root ~resource_files ~output =
   let resource_price_acc =
     CCList.map (fun r -> (r, Oiq_tf.Resource.to_match_set r, [])) resources
   in
-  let csv_stream = Csv.of_channel @@ open_in @@ pricing_root ^ "/prices.csv" in
-  let _headers = Csv.next csv_stream in
-  try
-    let match_pricesheet acc row =
-      match Oiq_prices.Product.of_row row with
-      | Ok p ->
-          let prod_ms = Oiq_prices.Product.to_match_set p in
-          CCList.map
-            (function
-              | res, ms, acc when Oiq_match_set.subset ~super:ms prod_ms -> (res, ms, p :: acc)
-              | v -> v)
-            acc
-      | Error err -> raise (Match_err (`Product_parse_err err))
-    in
-    let matches =
-      CCList.map (fun (res, _, products) -> Oiq_match_file.Match.make res products)
-      @@ Csv.fold_left ~f:match_pricesheet ~init:resource_price_acc csv_stream
-    in
-    let match_file = Oiq_match_file.make matches in
-    Yojson.Safe.pretty_to_channel output @@ Oiq_match_file.to_yojson match_file;
-    Ok ()
-  with Match_err err -> Error err
+  CCIO.with_in pricesheet (fun in_chan ->
+      let csv_stream = Csv.of_channel in_chan in
+      let _headers = Csv.next csv_stream in
+      try
+        let match_pricesheet acc row =
+          match Oiq_prices.Product.of_row row with
+          | Ok p ->
+              let prod_ms = Oiq_prices.Product.to_match_set p in
+              CCList.map
+                (function
+                  | res, ms, acc when Oiq_match_set.subset ~super:ms prod_ms -> (res, ms, p :: acc)
+                  | v -> v)
+                acc
+          | Error err -> raise (Match_err (`Product_parse_err err))
+        in
+        let matches =
+          CCList.map (fun (res, _, products) -> Oiq_match_file.Match.make res products)
+          @@ Csv.fold_left ~f:match_pricesheet ~init:resource_price_acc csv_stream
+        in
+        let match_file = Oiq_match_file.make matches in
+        Yojson.Safe.pretty_to_channel output @@ Oiq_match_file.to_yojson match_file;
+        Ok ()
+      with Match_err err -> Error err)
 
 let price ~input () =
   let open CCResult.Infix in
