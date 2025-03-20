@@ -82,7 +82,12 @@ let price usage input =
     | Some fname -> CCIO.with_in fname f
     | None -> f stdin
   in
-  match with_input (fun input -> Oiq.price ~input ()) with
+  let maybe_with_usage f =
+    match usage with
+    | Some fname -> CCIO.with_in fname (fun io -> f (Some io))
+    | None -> f None
+  in
+  match with_input (fun input -> maybe_with_usage (fun usage -> Oiq.price ?usage ~input ())) with
   | Ok priced -> print_endline @@ Oiq_pricer.pretty_to_string priced
   | Error err ->
       Logs.err (fun m -> m "%a" Oiq.pp_price_err err);
