@@ -33,6 +33,7 @@ module Price = struct
         P.usd;
         unit =
           ( "Hrs"
+          | "Hours"
           | "vCPU-hour"
           | "vCPU-Months"
           | "vCPU-Hours"

@@ -20,9 +20,26 @@ let type_ json =
   | _ -> `Unknown
 
 module Resource = struct
-  type t = { data : Yojson.Safe.t }
+  type t = {
+    name : string;
+    type_ : string;
+    data : Yojson.Safe.t;
+  }
 
-  let of_yojson data = Ok { data }
+  let name t = t.name
+  let type_ t = t.type_
+
+  let of_yojson data =
+    let module P = struct
+      type t = {
+        name : string;
+        type_ : string; [@key "type"]
+      }
+      [@@deriving of_yojson { strict = false }]
+    end in
+    let open CCResult.Infix in
+    P.of_yojson data >>= fun { P.name; type_ } -> Ok { name; type_; data }
+
   let to_yojson t = t.data
 
   let rec flatten ?(prefix = "") (json : Yojson.Safe.t) : (string * string) list =
