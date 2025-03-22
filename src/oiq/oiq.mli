@@ -15,4 +15,9 @@ type price_err =
 val match_ :
   pricesheet:string -> resource_files:string list -> output:out_channel -> (unit, match_err) result
 
-val price : ?usage:in_channel -> input:in_channel -> unit -> (Oiq_pricer.t, price_err) result
+val price :
+  ?usage:in_channel ->
+  match_query:Oiq_match_set.t list ->
+  input:in_channel ->
+  unit ->
+  (Oiq_pricer.t, price_err) result

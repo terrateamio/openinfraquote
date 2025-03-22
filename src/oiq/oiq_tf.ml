@@ -79,8 +79,7 @@ module Resource = struct
         flatten ~prefix:new_prefix content
     | `Variant (name, None) -> [ (prefix ^ "." ^ name, "") ]
 
-  let to_match_set t =
-    CCResult.get_exn @@ Oiq_match_set.of_list @@ Oiq_match_set.to_keys @@ flatten t.data
+  let to_match_set t = Oiq_match_set.of_list @@ flatten t.data
 end
 
 let rec load_resources json =
