@@ -40,11 +40,10 @@ module Entry = struct
     let open CCResult.Infix in
     P.of_yojson json
     >>= fun { P.description; match_set; usage } ->
-    CCResult.map_err (fun (#Oiq_match_set.of_list_err as err) -> Oiq_match_set.show_of_list_err err)
-    @@ Oiq_match_set.of_list
-    @@ Oiq_match_set.to_keys
-    @@ CCList.map (fun { P.key; value } -> (key, value)) match_set
-    >>= fun match_set -> Ok { description; match_set; usage }
+    let match_set =
+      Oiq_match_set.of_list @@ CCList.map (fun { P.key; value } -> (key, value)) match_set
+    in
+    Ok { description; match_set; usage }
 end
 
 let defaults =

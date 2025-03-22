@@ -26,6 +26,7 @@ end
 type t = {
   match_date : string;
   price_date : string;
+  match_query : string list;
   resources : Resource.t list;
   total : Price_range.t;
   total_diff : Price_range.t;
@@ -56,14 +57,34 @@ let price_products usage products =
   | Some min, Some max -> (min, max)
   | _, _ -> assert false
 
-let price ~usage match_file =
+let filter_products match_query matches =
+  if CCList.is_empty match_query then matches
+  else
+    CCList.map
+      (fun match_ ->
+        let resource_ms = Oiq_tf.Resource.to_match_set @@ Oiq_match_file.Match.resource match_ in
+        let products =
+          CCList.filter
+            (fun product ->
+              let ms = Oiq_match_set.union resource_ms (Oiq_prices.Product.to_match_set product) in
+              CCList.exists (fun query -> Oiq_match_set.query ~super:ms query) match_query)
+            (Oiq_match_file.Match.products match_)
+        in
+        Oiq_match_file.Match.make
+          (Oiq_match_file.Match.resource match_)
+          products
+          (Oiq_match_file.Match.change match_))
+      matches
+
+let price ~usage ~match_query match_file =
   let priced_resources =
     CCList.filter_map (fun match_ ->
         let resource = Oiq_match_file.Match.resource match_ in
+        let products = Oiq_match_file.Match.products match_ in
         match Oiq_usage.match_ resource usage with
-        | Some entry ->
+        | Some entry when not (CCList.is_empty products) ->
             let (product_min, min), (product_max, max) =
-              price_products (Oiq_usage.Entry.usage entry) (Oiq_match_file.Match.products match_)
+              price_products (Oiq_usage.Entry.usage entry) products
             in
             let d =
               if Oiq_match_file.Match.change match_ = `Remove then CCFloat.neg else CCFun.id
@@ -77,13 +98,15 @@ let price ~usage match_file =
                 total = { Price_range.min = d min; max = d max };
                 change = Oiq_match_file.Match.change match_;
               }
+        | Some _ -> None
         | None when CCList.is_empty (Oiq_match_file.Match.products match_) -> None
         | None ->
             Logs.err (fun m -> m "No usage entry found for a resource with matching products");
-            Logs.err (fun m -> m "Resource:");
+            Logs.err (fun m -> m "Match:");
             Logs.err (fun m ->
-                m "%s" (Yojson.Safe.pretty_to_string (Oiq_tf.Resource.to_yojson resource)));
-            assert false)
+                m "%s" (Yojson.Safe.pretty_to_string (Oiq_match_file.Match.to_yojson match_)));
+            None)
+    @@ filter_products match_query
     @@ Oiq_match_file.matches match_file
   in
   let total =
@@ -105,8 +128,17 @@ let price ~usage match_file =
       { Price_range.min = 0.0; max = 0.0 }
       priced_resources
   in
+  let match_query =
+    CCList.map
+      (fun query ->
+        CCString.concat " & "
+        @@ CCList.map (fun (k, v) -> k ^ "=" ^ v)
+        @@ Oiq_match_set.to_list query)
+      match_query
+  in
   {
     match_date = Oiq_match_file.date match_file;
+    match_query;
     price_date = ISO8601.Permissive.string_of_datetime (Unix.gettimeofday ());
     resources = priced_resources;
     total;
@@ -117,6 +149,7 @@ let pretty_to_string t =
   Printf.sprintf
     "Match date: %s\n\
      Price date: %s\n\
+     Match query: %s\n\
      Total Min: %0.2f USD\n\
      Total Max: %0.2f USD\n\
      Total Diff Min: %0.2f USD\n\
@@ -126,6 +159,7 @@ let pretty_to_string t =
      %s"
     t.match_date
     t.price_date
+    (CCString.concat " | " t.match_query)
     t.total.Price_range.min
     t.total.Price_range.max
     t.total_diff.Price_range.min

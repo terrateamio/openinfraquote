@@ -81,6 +81,7 @@ module Product = struct
     | `Invalid_unit_err of Yojson.Safe.t
     | `Invalid_price_err of Yojson.Safe.t * string
     | `Invalid_match_set_err of string
+    | `Empty_match_set_err
     ]
   [@@deriving show]
 
@@ -93,6 +94,7 @@ module Product = struct
   [@@deriving yojson, eq]
 
   let of_row = function
+    | [ _service; _product_family; ""; _price_info ] -> Error `Empty_match_set_err
     | [ service; product_family; match_set_str; price_info ] -> (
         try
           let open CCResult.Infix in
