@@ -1,10 +1,10 @@
 module Usage = struct
   type t = {
-    hours : int option; [@default None]
-    operations : int option; [@default None]
-    data : int option; [@default None]
+    hours : int; [@default 0]
+    operations : int; [@default 0]
+    data : int; [@default 0]
   }
-  [@@deriving of_yojson]
+  [@@deriving yojson]
 
   let hours t = t.hours
   let operations t = t.operations

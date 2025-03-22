@@ -15,10 +15,11 @@ module Resource = struct
   type t = {
     change : Oiq_tf.Plan.change; [@to_yojson change_to_yojson]
     name : string;
-    product_max : Oiq_prices.Product.t;
-    product_min : Oiq_prices.Product.t;
+    products_max : Oiq_prices.Product.t list;
+    products_min : Oiq_prices.Product.t list;
     total : Price_range.t;
     type_ : string; [@key "type"]
+    usage : Oiq_usage.Usage.t;
   }
   [@@deriving to_yojson]
 end
@@ -33,29 +34,43 @@ type t = {
 }
 [@@deriving to_yojson]
 
-let hours = CCFun.(Oiq_usage.Usage.hours %> CCOption.get_or ~default:0 %> CCFloat.of_int)
-let operations = CCFun.(Oiq_usage.Usage.operations %> CCOption.get_or ~default:0 %> CCFloat.of_int)
-let data = CCFun.(Oiq_usage.Usage.data %> CCOption.get_or ~default:0 %> CCFloat.of_int)
+let hours = CCFun.(Oiq_usage.Usage.hours %> CCFloat.of_int)
+let operations = CCFun.(Oiq_usage.Usage.operations %> CCFloat.of_int)
+let data = CCFun.(Oiq_usage.Usage.data %> CCFloat.of_int)
 
 let price_products usage products =
   let priced_products =
     CCList.sort (fun (_, l) (_, r) -> CCFloat.compare l r)
     @@ CCList.map
          (fun product ->
-           ( product,
-             CCList.fold_left
-               (fun acc price ->
-                 match price with
-                 | Oiq_prices.Price.Per_hour amount -> hours usage *. amount
-                 | Oiq_prices.Price.Per_data amount -> data usage *. amount
-                 | Oiq_prices.Price.Per_operation amount -> operations usage *. amount)
-               0.0
-               (Oiq_prices.Product.prices product) ))
+           let price = Oiq_prices.Product.price product in
+           let quote =
+             match price with
+             | Oiq_prices.Price.Per_hour price -> hours usage *. price
+             | Oiq_prices.Price.Per_operation price -> operations usage *. price
+             | Oiq_prices.Price.Per_data price -> data usage *. price
+           in
+           (product, quote))
          products
   in
   match (CCList.head_opt priced_products, CCList.head_opt @@ CCList.rev priced_products) with
   | Some min, Some max -> (min, max)
   | _, _ -> assert false
+
+let group_products products =
+  (* We assume that products are grouped by what kind of price type they
+     have. *)
+  let per_hour, per_operation, per_data =
+    CCList.fold_left
+      (fun (per_hour, per_operation, per_data) p ->
+        match Oiq_prices.Product.price p with
+        | Oiq_prices.Price.Per_hour _ -> (p :: per_hour, per_operation, per_data)
+        | Oiq_prices.Price.Per_operation _ -> (per_hour, p :: per_operation, per_data)
+        | Oiq_prices.Price.Per_data _ -> (per_hour, per_operation, p :: per_data))
+      ([], [], [])
+      products
+  in
+  CCList.filter CCFun.(CCList.is_empty %> not) [ per_hour; per_operation; per_data ]
 
 let filter_products match_query matches =
   if CCList.is_empty match_query then matches
@@ -66,7 +81,13 @@ let filter_products match_query matches =
         let products =
           CCList.filter
             (fun product ->
-              let ms = Oiq_match_set.union resource_ms (Oiq_prices.Product.to_match_set product) in
+              let ms =
+                Oiq_match_set.union
+                  resource_ms
+                  (Oiq_match_set.union
+                     (Oiq_prices.Product.pricing_match_set product)
+                     (Oiq_prices.Product.to_match_set product))
+              in
               CCList.exists (fun query -> Oiq_match_set.query ~super:ms query) match_query)
             (Oiq_match_file.Match.products match_)
         in
@@ -83,20 +104,31 @@ let price ~usage ~match_query match_file =
         let products = Oiq_match_file.Match.products match_ in
         match Oiq_usage.match_ resource usage with
         | Some entry when not (CCList.is_empty products) ->
-            let (product_min, min), (product_max, max) =
-              price_products (Oiq_usage.Entry.usage entry) products
-            in
+            let usage = Oiq_usage.Entry.usage entry in
+            let product_groups = group_products products in
             let d =
               if Oiq_match_file.Match.change match_ = `Remove then CCFloat.neg else CCFun.id
             in
+            let (products_min, min), (products_max, max) =
+              product_groups
+              |> CCList.map (price_products usage)
+              |> CCList.fold_left
+                   (fun ((products_min, total_min), (products_max, total_max))
+                        ((product_min, min), (product_max, max))
+                      ->
+                     ( (product_min :: products_min, total_min +. min),
+                       (product_max :: products_max, total_max +. max) ))
+                   (([], 0.0), ([], 0.0))
+            in
             Some
               {
-                Resource.name = Oiq_tf.Resource.name resource;
-                type_ = Oiq_tf.Resource.type_ resource;
-                product_min;
-                product_max;
+                Resource.change = Oiq_match_file.Match.change match_;
+                name = Oiq_tf.Resource.name resource;
+                products_max;
+                products_min;
                 total = { Price_range.min = d min; max = d max };
-                change = Oiq_match_file.Match.change match_;
+                type_ = Oiq_tf.Resource.type_ resource;
+                usage;
               }
         | Some _ -> None
         | None when CCList.is_empty (Oiq_match_file.Match.products match_) -> None
