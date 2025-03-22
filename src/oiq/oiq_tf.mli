@@ -9,11 +9,17 @@ module Resource : sig
 end
 
 module Plan : sig
+  type change =
+    [ `Noop
+    | `Add
+    | `Remove
+    ]
+
   type err = [ `Invalid_plan of string ] [@@deriving show]
   type t
 
   val of_yojson : Yojson.Safe.t -> (t, [> err ]) result
-  val resources : t -> Resource.t list
+  val resources : t -> (Resource.t * change) list
 end
 
 module State : sig
