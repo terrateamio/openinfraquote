@@ -8,9 +8,9 @@
 module Usage : sig
   type t
 
-  val hours : t -> int option
-  val operations : t -> int option
-  val data : t -> int option
+  val hours : t -> int
+  val operations : t -> int
+  val data : t -> int
 end
 
 module Entry : sig

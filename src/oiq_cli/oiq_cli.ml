@@ -64,7 +64,7 @@ let reporter ppf =
   { Logs.report }
 
 let setup_log () =
-  Logs.set_reporter (reporter Format.std_formatter);
+  Logs.set_reporter (reporter Format.err_formatter);
   Logs.set_level (Some Logs.Debug)
 
 let match_ pricesheet resource_files output_path =
