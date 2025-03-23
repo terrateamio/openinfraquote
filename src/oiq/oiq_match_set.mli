@@ -12,7 +12,6 @@ val subset : super:t -> t -> bool
     which. *)
 val union : t -> t -> t
 
-(** Performs a query against [super]. [query ~super query] returns [true] if any keys that [super]
-    contains that [query] also contains match or if [super] and [query] contain no overlapping keys.
-    Otherwise returns [false] *)
+(** Performs a query against [super]. [query ~super query] returns [false] if all keys in [query]
+    exiist in [super] but not all values match. Otherwise returns [true]. *)
 val query : super:t -> t -> bool
