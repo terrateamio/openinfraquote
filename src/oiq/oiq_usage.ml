@@ -12,6 +12,21 @@ module Usage = struct
 end
 
 module Entry = struct
+  module P = struct
+    type match_set_entry = {
+      key : string;
+      value : string;
+    }
+    [@@deriving yojson]
+
+    type t = {
+      description : string option;
+      match_set : match_set_entry list;
+      usage : Usage.t;
+    }
+    [@@deriving yojson]
+  end
+
   type t = {
     usage : Usage.t;
     match_set : Oiq_match_set.t;
@@ -22,21 +37,16 @@ module Entry = struct
   let match_set t = t.match_set
   let description t = t.description
 
-  let of_yojson json =
-    let module P = struct
-      type match_set_entry = {
-        key : string;
-        value : string;
+  let to_yojson { usage; match_set; description } =
+    P.to_yojson
+      {
+        P.description;
+        usage;
+        match_set =
+          CCList.map (fun (key, value) -> { P.key; value }) @@ Oiq_match_set.to_list match_set;
       }
-      [@@deriving of_yojson]
 
-      type t = {
-        description : string option;
-        match_set : match_set_entry list;
-        usage : Usage.t;
-      }
-      [@@deriving of_yojson]
-    end in
+  let of_yojson json =
     let open CCResult.Infix in
     P.of_yojson json
     >>= fun { P.description; match_set; usage } ->
@@ -68,8 +78,5 @@ let of_channel in_chan =
     (fun msg -> `Usage_file_err msg)
     ([%of_yojson: Entry.t list] json >>= fun entries -> Ok { entries = entries @ defaults })
 
-let match_ resource t =
-  let resource_ms = Oiq_tf.Resource.to_match_set resource in
-  CCList.find_opt
-    (fun { Entry.match_set; _ } -> Oiq_match_set.subset ~super:resource_ms match_set)
-    t.entries
+let match_ ms t =
+  CCList.find_opt (fun { Entry.match_set; _ } -> Oiq_match_set.subset ~super:ms match_set) t.entries

@@ -14,7 +14,7 @@ module Usage : sig
 end
 
 module Entry : sig
-  type t
+  type t [@@deriving yojson]
 
   val usage : t -> Usage.t
   val match_set : t -> Oiq_match_set.t
@@ -26,4 +26,4 @@ type t
 
 val default : unit -> t
 val of_channel : in_channel -> (t, [> of_channel_err ]) result
-val match_ : Oiq_tf.Resource.t -> t -> Entry.t option
+val match_ : Oiq_match_set.t -> t -> Entry.t option

@@ -6,7 +6,7 @@ end)
 
 module Mm = CCMap.Make (CCString)
 
-type t = Ms.t [@@deriving eq]
+type t = Ms.t [@@deriving eq, ord]
 type of_list_err = [ `Error ] [@@deriving show]
 type of_string_err = [ `Error ] [@@deriving show]
 
