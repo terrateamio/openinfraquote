@@ -1,10 +1,12 @@
+module String_set = CCSet.Make (CCString)
+
 module Ms = CCSet.Make (struct
   type t = string * string [@@deriving ord]
 end)
 
 module Mm = CCMap.Make (CCString)
 
-type t = Ms.t [@@deriving eq]
+type t = Ms.t [@@deriving eq, ord]
 type of_list_err = [ `Error ] [@@deriving show]
 type of_string_err = [ `Error ] [@@deriving show]
 
@@ -24,15 +26,25 @@ let subset ~super sub = Ms.subset sub super
 let union = Ms.union
 
 let query ~super query =
-  let super = Mm.of_list @@ Ms.to_list super in
-  let query = Mm.of_list @@ Ms.to_list query in
-  Mm.fold
-    (fun k v acc ->
-      match Mm.find_opt k super with
-      | Some v' -> acc && CCString.equal v v'
-      | None -> acc)
-    query
-    true
+  let super_list = Ms.to_list super in
+  let query_list = Ms.to_list query in
+  let super_set = String_set.of_list @@ CCList.map fst super_list in
+  let query_set = String_set.of_list @@ CCList.map fst query_list in
+  if String_set.subset query_set super_set then
+    (* If all keys in [query] are in [super], then try to match further.
+       Otherwise return true.  This is because this function has, maybe what
+       till turn out to be surprising, semantcs such that it only tries to
+       perform a match if all keys exist. *)
+    let super = Mm.of_list super_list in
+    let query = Mm.of_list query_list in
+    Mm.fold
+      (fun k v acc ->
+        match Mm.find_opt k super with
+        | Some v' -> acc && CCString.equal v v'
+        | None -> acc)
+      query
+      true
+  else true
 
 let to_yojson =
   CCFun.(
