@@ -21,6 +21,7 @@ module Entry = struct
 
     type t = {
       description : string option;
+      divisor : int option; [@default None]
       match_set : match_set_entry list;
       usage : Usage.t;
     }
@@ -28,32 +29,35 @@ module Entry = struct
   end
 
   type t = {
-    usage : Usage.t;
-    match_set : Oiq_match_set.t;
     description : string option;
+    divisor : int option;
+    match_set : Oiq_match_set.t;
+    usage : Usage.t;
   }
 
   let usage t = t.usage
   let match_set t = t.match_set
   let description t = t.description
+  let divisor t = t.divisor
 
-  let to_yojson { usage; match_set; description } =
+  let to_yojson { usage; match_set; description; divisor } =
     P.to_yojson
       {
         P.description;
         usage;
         match_set =
           CCList.map (fun (key, value) -> { P.key; value }) @@ Oiq_match_set.to_list match_set;
+        divisor;
       }
 
   let of_yojson json =
     let open CCResult.Infix in
     P.of_yojson json
-    >>= fun { P.description; match_set; usage } ->
+    >>= fun { P.description; match_set; usage; divisor } ->
     let match_set =
       Oiq_match_set.of_list @@ CCList.map (fun { P.key; value } -> (key, value)) match_set
     in
-    Ok { description; match_set; usage }
+    Ok { description; match_set; usage; divisor }
 end
 
 let defaults =
