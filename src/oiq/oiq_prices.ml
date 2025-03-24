@@ -40,18 +40,19 @@ module Product = struct
   [@@deriving show]
 
   type t = {
-    service : string;
-    product_family : string;
+    ccy : string;
     match_set : Oiq_match_set.t;
-    pricing_match_set : Oiq_match_set.t;
     price_info : Price.t;
+    pricing_match_set : Oiq_match_set.t;
+    product_family : string;
+    service : string;
   }
   [@@deriving yojson, eq]
 
   let of_row = function
-    | [ _service; _product_family; ""; _pricing_match_set; _price; _price_type ] ->
+    | [ _service; _product_family; ""; _pricing_match_set; _price; _price_type; _ccy ] ->
         Error `Empty_match_set_err
-    | [ service; product_family; match_set; pricing_match_set; price; price_type ] ->
+    | [ service; product_family; match_set; pricing_match_set; price; price_type; ccy ] ->
         let open CCResult.Infix in
         CCResult.map_err
           (CCFun.const (`Invalid_price_err price))
@@ -71,7 +72,7 @@ module Product = struct
           (fun _ -> `Invalid_pricing_match_set_err pricing_match_set)
           (Oiq_match_set.of_string pricing_match_set)
         >>= fun pricing_match_set ->
-        Ok { service; product_family; match_set; pricing_match_set; price_info }
+        Ok { service; product_family; match_set; pricing_match_set; price_info; ccy }
     | row -> Error (`Invalid_row_err row)
 
   let pricing_match_set t = t.pricing_match_set
