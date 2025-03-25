@@ -8,9 +8,9 @@
 module Usage : sig
   type t [@@deriving yojson]
 
-  val hours : t -> int
-  val operations : t -> int
-  val data : t -> int
+  val hours : t -> int Oiq_range.t
+  val operations : t -> int Oiq_range.t
+  val data : t -> int Oiq_range.t
 end
 
 module Entry : sig

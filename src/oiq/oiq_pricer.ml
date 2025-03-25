@@ -42,25 +42,29 @@ type t = {
 }
 [@@deriving to_yojson]
 
-let hours = CCFun.(Oiq_usage.Usage.hours %> CCFloat.of_int)
-let operations = CCFun.(Oiq_usage.Usage.operations %> CCFloat.of_int)
-let data = CCFun.(Oiq_usage.Usage.data %> CCFloat.of_int)
+let hours f = CCFun.(Oiq_usage.Usage.hours %> f %> CCFloat.of_int)
+let operations f = CCFun.(Oiq_usage.Usage.operations %> f %> CCFloat.of_int)
+let data f = CCFun.(Oiq_usage.Usage.data %> f %> CCFloat.of_int)
 
 let price_products entry products =
   let usage = Oiq_usage.Entry.usage entry in
   let divisor = CCFloat.of_int @@ CCOption.get_or ~default:1 @@ Oiq_usage.Entry.divisor entry in
   let priced_products =
     CCList.sort (fun (_, l) (_, r) -> CCFloat.compare l r)
-    @@ CCList.map
+    @@ CCList.flat_map
          (fun product ->
            let price = Oiq_prices.Product.price product in
-           let quote =
+           let quote f =
              match price with
-             | Oiq_prices.Price.Per_hour price -> hours usage /. divisor *. price
-             | Oiq_prices.Price.Per_operation price -> operations usage /. divisor *. price
-             | Oiq_prices.Price.Per_data price -> data usage /. divisor *. price
+             | Oiq_prices.Price.Per_hour price -> hours f usage /. divisor *. price
+             | Oiq_prices.Price.Per_operation price -> operations f usage /. divisor *. price
+             | Oiq_prices.Price.Per_data price -> data f usage /. divisor *. price
            in
-           (product, quote))
+           let min { Oiq_range.min; _ } = min in
+           let max { Oiq_range.max; _ } = max in
+           let min_quote = quote min in
+           let max_quote = quote max in
+           [ (product, min_quote); (product, max_quote) ])
          products
   in
   match (CCList.head_opt priced_products, CCList.head_opt @@ CCList.rev priced_products) with
