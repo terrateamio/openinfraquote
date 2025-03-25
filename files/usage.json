@@ -110,5 +110,21 @@
     "usage": {
       "hours": 730
     }
+  },
+  {
+    "description": "Default AWS SQS IOPS (Per 1 million)",
+    "match_set": [
+      {
+        "key": "type",
+        "value": "aws_sqs_queue"
+      },
+      {
+        "key": "service_class",
+        "value": "requests"
+      }
+    ],
+    "usage": {
+      "operations": 50000000
+    }
   }
 ]
