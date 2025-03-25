@@ -1,5 +1,8 @@
 module Price_range = struct
   type t = float Oiq_range.t [@@deriving to_yojson]
+
+  let empty = { Oiq_range.min = 0.0; max = 0.0 }
+  let sum = Oiq_range.append ( +. )
 end
 
 module Product = struct
@@ -133,10 +136,8 @@ let price ~usage ~match_query match_file =
           let d = if Oiq_match_file.Match.change match_ = `Remove then CCFloat.neg else CCFun.id in
           let price =
             CCList.fold_left
-              (fun { Oiq_range.min; max }
-                   { Product.price = { Oiq_range.min = min'; max = max' }; _ }
-                 -> { Oiq_range.min = min +. min'; max = max +. max' })
-              { Oiq_range.min = 0.0; max = 0.0 }
+              (fun acc { Product.price; _ } -> Price_range.sum acc price)
+              Price_range.empty
               products
           in
           Some
@@ -154,20 +155,17 @@ let price ~usage ~match_query match_file =
   in
   let price =
     CCList.fold_left
-      (fun { Oiq_range.min; max } { Resource.price = { Oiq_range.min = min'; max = max' }; _ } ->
-        { Oiq_range.min = min +. min'; max = max +. max' })
-      { Oiq_range.min = 0.0; max = 0.0 }
+      (fun acc { Resource.price; _ } -> Price_range.sum acc price)
+      Price_range.empty
       priced_resources
   in
   let price_diff =
     CCList.fold_left
-      (fun ({ Oiq_range.min; max } as acc)
-           { Resource.price = { Oiq_range.min = min'; max = max' }; change; _ }
-         ->
+      (fun acc { Resource.price; change; _ } ->
         match change with
         | `Noop -> acc
-        | `Add | `Remove -> { Oiq_range.min = min +. min'; max = max +. max' })
-      { Oiq_range.min = 0.0; max = 0.0 }
+        | `Add | `Remove -> Price_range.sum acc price)
+      Price_range.empty
       priced_resources
   in
   let match_query =
