@@ -1,9 +1,5 @@
 module Price_range = struct
-  type t = {
-    min : float;
-    max : float;
-  }
-  [@@deriving to_yojson]
+  type t = float Oiq_range.t [@@deriving to_yojson]
 end
 
 module Product = struct
@@ -128,7 +124,7 @@ let price ~usage ~match_query match_file =
           Entry_map.fold
             (fun entry products acc ->
               let (product_min, min), (product_max, max) = price_products entry products in
-              { Product.price = { Price_range.min; max }; product_max; product_min; usage = entry }
+              { Product.price = { Oiq_range.min; max }; product_max; product_min; usage = entry }
               :: acc)
             usage_entries
             []
@@ -137,10 +133,10 @@ let price ~usage ~match_query match_file =
           let d = if Oiq_match_file.Match.change match_ = `Remove then CCFloat.neg else CCFun.id in
           let price =
             CCList.fold_left
-              (fun { Price_range.min; max }
-                   { Product.price = { Price_range.min = min'; max = max' }; _ }
-                 -> { Price_range.min = min +. min'; max = max +. max' })
-              { Price_range.min = 0.0; max = 0.0 }
+              (fun { Oiq_range.min; max }
+                   { Product.price = { Oiq_range.min = min'; max = max' }; _ }
+                 -> { Oiq_range.min = min +. min'; max = max +. max' })
+              { Oiq_range.min = 0.0; max = 0.0 }
               products
           in
           Some
@@ -148,7 +144,7 @@ let price ~usage ~match_query match_file =
               Resource.address = Oiq_tf.Resource.address resource;
               change = Oiq_match_file.Match.change match_;
               name = Oiq_tf.Resource.name resource;
-              price = { Price_range.min = d price.Price_range.min; max = d price.Price_range.max };
+              price = { Oiq_range.min = d price.Oiq_range.min; max = d price.Oiq_range.max };
               type_ = Oiq_tf.Resource.type_ resource;
               products;
             }
@@ -158,21 +154,20 @@ let price ~usage ~match_query match_file =
   in
   let price =
     CCList.fold_left
-      (fun { Price_range.min; max }
-           { Resource.price = { Price_range.min = min'; max = max' }; _ }
-         -> { Price_range.min = min +. min'; max = max +. max' })
-      { Price_range.min = 0.0; max = 0.0 }
+      (fun { Oiq_range.min; max } { Resource.price = { Oiq_range.min = min'; max = max' }; _ } ->
+        { Oiq_range.min = min +. min'; max = max +. max' })
+      { Oiq_range.min = 0.0; max = 0.0 }
       priced_resources
   in
   let price_diff =
     CCList.fold_left
-      (fun ({ Price_range.min; max } as acc)
-           { Resource.price = { Price_range.min = min'; max = max' }; change; _ }
+      (fun ({ Oiq_range.min; max } as acc)
+           { Resource.price = { Oiq_range.min = min'; max = max' }; change; _ }
          ->
         match change with
         | `Noop -> acc
-        | `Add | `Remove -> { Price_range.min = min +. min'; max = max +. max' })
-      { Price_range.min = 0.0; max = 0.0 }
+        | `Add | `Remove -> { Oiq_range.min = min +. min'; max = max +. max' })
+      { Oiq_range.min = 0.0; max = 0.0 }
       priced_resources
   in
   let match_query =
@@ -207,10 +202,10 @@ let pretty_to_string t =
     t.match_date
     t.price_date
     (CCString.concat " | " t.match_query)
-    t.price.Price_range.min
-    t.price.Price_range.max
-    t.price_diff.Price_range.min
-    t.price_diff.Price_range.max
+    t.price.Oiq_range.min
+    t.price.Oiq_range.max
+    t.price_diff.Oiq_range.min
+    t.price_diff.Oiq_range.max
     "Name"
     "Type"
     "Min Price (USD)"
@@ -218,7 +213,7 @@ let pretty_to_string t =
     "Change"
     (CCString.concat "\n"
     @@ CCList.map
-         (fun { Resource.address; name; type_; price = { Price_range.min; max }; change; _ } ->
+         (fun { Resource.address; name; type_; price = { Oiq_range.min; max }; change; _ } ->
            let name =
              if not (CCString.equal address (type_ ^ "." ^ name)) then
                CCString.concat "." @@ CCList.tl @@ CCString.split_on_char '.' address

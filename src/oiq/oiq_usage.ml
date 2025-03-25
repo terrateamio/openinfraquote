@@ -1,3 +1,11 @@
+module Range = struct
+  type t = {
+    min : int;
+    max : int;
+  }
+  [@@deriving yojson]
+end
+
 module Usage = struct
   type t = {
     hours : int; [@default 0]
