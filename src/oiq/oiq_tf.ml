@@ -21,24 +21,27 @@ let type_ json =
 
 module Resource = struct
   type t = {
+    address : string;
     name : string;
     type_ : string;
     data : Yojson.Safe.t;
   }
 
+  let address t = t.address
   let name t = t.name
   let type_ t = t.type_
 
   let of_yojson data =
     let module P = struct
       type t = {
+        address : string;
         name : string;
         type_ : string; [@key "type"]
       }
       [@@deriving of_yojson { strict = false }]
     end in
     let open CCResult.Infix in
-    P.of_yojson data >>= fun { P.name; type_ } -> Ok { name; type_; data }
+    P.of_yojson data >>= fun { P.address; name; type_ } -> Ok { address; name; type_; data }
 
   let to_yojson t = t.data
 
@@ -135,16 +138,10 @@ module Plan = struct
           <$> load_resources prior_state
           <*> load_resources planned_values)
         >>= fun (prior_state, planned_values) ->
-        let module String_tuple = struct
-          type t = string * string [@@deriving ord]
-        end in
         let module Resource_set = CCSet.Make (struct
           type t = Resource.t
 
-          let compare r1 r2 =
-            String_tuple.compare
-              (Resource.name r1, Resource.type_ r1)
-              (Resource.name r2, Resource.type_ r2)
+          let compare r1 r2 = CCString.compare (Resource.address r1) (Resource.address r2)
         end) in
         let prior_state = Resource_set.of_list prior_state in
         let planned_values = Resource_set.of_list planned_values in

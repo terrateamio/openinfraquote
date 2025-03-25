@@ -23,6 +23,7 @@ module Resource = struct
     | `Remove -> `String "remove"
 
   type t = {
+    address : string;
     change : Oiq_tf.Plan.change; [@to_yojson change_to_yojson]
     name : string;
     price : Price_range.t;
@@ -46,7 +47,9 @@ let hours = CCFun.(Oiq_usage.Usage.hours %> CCFloat.of_int)
 let operations = CCFun.(Oiq_usage.Usage.operations %> CCFloat.of_int)
 let data = CCFun.(Oiq_usage.Usage.data %> CCFloat.of_int)
 
-let price_products usage products =
+let price_products entry products =
+  let usage = Oiq_usage.Entry.usage entry in
+  let divisor = CCFloat.of_int @@ CCOption.get_or ~default:1 @@ Oiq_usage.Entry.divisor entry in
   let priced_products =
     CCList.sort (fun (_, l) (_, r) -> CCFloat.compare l r)
     @@ CCList.map
@@ -54,9 +57,9 @@ let price_products usage products =
            let price = Oiq_prices.Product.price product in
            let quote =
              match price with
-             | Oiq_prices.Price.Per_hour price -> hours usage *. price
-             | Oiq_prices.Price.Per_operation price -> operations usage *. price
-             | Oiq_prices.Price.Per_data price -> data usage *. price
+             | Oiq_prices.Price.Per_hour price -> hours usage /. divisor *. price
+             | Oiq_prices.Price.Per_operation price -> operations usage /. divisor *. price
+             | Oiq_prices.Price.Per_data price -> data usage /. divisor *. price
            in
            (product, quote))
          products
@@ -124,9 +127,7 @@ let price ~usage ~match_query match_file =
         let products =
           Entry_map.fold
             (fun entry products acc ->
-              let (product_min, min), (product_max, max) =
-                price_products (Oiq_usage.Entry.usage entry) products
-              in
+              let (product_min, min), (product_max, max) = price_products entry products in
               { Product.price = { Price_range.min; max }; product_max; product_min; usage = entry }
               :: acc)
             usage_entries
@@ -144,7 +145,8 @@ let price ~usage ~match_query match_file =
           in
           Some
             {
-              Resource.change = Oiq_match_file.Match.change match_;
+              Resource.address = Oiq_tf.Resource.address resource;
+              change = Oiq_match_file.Match.change match_;
               name = Oiq_tf.Resource.name resource;
               price = { Price_range.min = d price.Price_range.min; max = d price.Price_range.max };
               type_ = Oiq_tf.Resource.type_ resource;
@@ -200,7 +202,7 @@ let pretty_to_string t =
      Min Price Diff: %0.2f USD\n\
      Max Price Diff: %0.2f USD\n\
      Resources\n\
-     %50s\t%50s\t%20s\t%20s\t%10s\n\
+     %50s\t%30s\t%20s\t%20s\t%10s\n\
      %s"
     t.match_date
     t.price_date
@@ -216,9 +218,14 @@ let pretty_to_string t =
     "Change"
     (CCString.concat "\n"
     @@ CCList.map
-         (fun { Resource.name; type_; price = { Price_range.min; max }; change; _ } ->
+         (fun { Resource.address; name; type_; price = { Price_range.min; max }; change; _ } ->
+           let name =
+             if not (CCString.equal address (type_ ^ "." ^ name)) then
+               CCString.concat "." @@ CCList.tl @@ CCString.split_on_char '.' address
+             else name
+           in
            Printf.sprintf
-             "%50s\t%50s\t%20.2f\t%20.2f\t%10s"
+             "%50s\t%30s\t%20.2f\t%20.2f\t%10s"
              name
              type_
              min

@@ -19,6 +19,7 @@ module Entry : sig
   val usage : t -> Usage.t
   val match_set : t -> Oiq_match_set.t
   val description : t -> string option
+  val divisor : t -> int option
 end
 
 type of_channel_err = [ `Usage_file_err of string ] [@@deriving show]
