@@ -1,8 +1,15 @@
 module Usage = struct
+  let range_of_yojson json =
+    match [%of_yojson: int] json with
+    | Ok v -> Ok { Oiq_range.min = v; max = v }
+    | Error _ -> [%of_yojson: int Oiq_range.t] json
+
+  let default = { Oiq_range.min = 0; max = 0 }
+
   type t = {
-    hours : int; [@default 0]
-    operations : int; [@default 0]
-    data : int; [@default 0]
+    hours : int Oiq_range.t; [@default default] [@of_yojson range_of_yojson]
+    operations : int Oiq_range.t; [@default default] [@of_yojson range_of_yojson]
+    data : int Oiq_range.t; [@default default] [@of_yojson range_of_yojson]
   }
   [@@deriving yojson]
 
