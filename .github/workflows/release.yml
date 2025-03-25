@@ -1,0 +1,124 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository }}
+
+jobs:
+  build-amd64:
+    name: Build and push Docker (amd64)
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build and push amd64 image
+        run: |
+          docker build -t $IMAGE_NAME:$VERSION-amd64 .
+          docker push $IMAGE_NAME:$VERSION-amd64
+        env:
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          VERSION: ${{ env.VERSION }}
+
+  build-arm64:
+    name: Build and push Docker (arm64)
+    runs-on: oiq-arm64
+    permissions:
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build and push arm64 image
+        run: |
+          docker build -t $IMAGE_NAME:$VERSION-arm64 .
+          docker push $IMAGE_NAME:$VERSION-arm64
+        env:
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          VERSION: ${{ env.VERSION }}
+
+  manifest:
+    name: Create multi-arch manifest
+    runs-on: ubuntu-latest
+    needs: [build-amd64, build-arm64]
+    permissions:
+      packages: write
+
+    steps:
+      - name: Extract version from tag
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> "$GITHUB_ENV"
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Create and push multi-arch manifest
+        run: |
+          docker manifest create $IMAGE_NAME:$VERSION \
+            --amend $IMAGE_NAME:$VERSION-amd64 \
+            --amend $IMAGE_NAME:$VERSION-arm64
+          docker manifest push $IMAGE_NAME:$VERSION
+
+          docker manifest create $IMAGE_NAME:latest \
+            --amend $IMAGE_NAME:$VERSION-amd64 \
+            --amend $IMAGE_NAME:$VERSION-arm64
+          docker manifest push $IMAGE_NAME:latest
+        env:
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          VERSION: ${{ env.VERSION }}
+
+  upload-binaries:
+    name: Upload binary tarballs
+    needs: manifest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: oiq-arm64
+
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: write
+
+    steps:
+      - name: Extract version from tag
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> "$GITHUB_ENV"
+
+      - name: Pull and extract binary
+        run: |
+          docker pull --platform linux/${{ matrix.arch }} ${{ env.IMAGE_NAME }}:${{ env.VERSION }}
+          id=$(docker create --platform linux/${{ matrix.arch }} ${{ env.IMAGE_NAME }}:${{ env.VERSION }})
+          docker cp $id:/usr/local/bin/oiq oiq
+          docker rm $id
+
+      - name: Create tarball
+        run: |
+          chmod +x oiq
+          tar -czf oiq-linux-${{ matrix.arch }}-${{ env.VERSION }}.tar.gz oiq
+
+      - name: Upload to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: oiq-linux-${{ matrix.arch }}-${{ env.VERSION }}.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
