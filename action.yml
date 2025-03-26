@@ -1,0 +1,93 @@
+name: OpenInfraQuote
+description: Run oiq on a Terraform plan file and post the output as a PR comment.
+
+inputs:
+  plan-path:
+    description: Path to the Terraform JSON plan file
+    required: false
+    default: tfplan.json
+
+  comment-on-pr:
+    description: Whether to comment the result on the pull request
+    required: false
+    default: true
+
+  github-token:
+    description: GitHub token for commenting on pull requests
+    required: false
+    default: ${{ github.token }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Download latest oiq release
+      shell: bash
+      run: |
+        ARCH=amd64
+        API_URL="https://api.github.com/repos/terrateamio/openinfraquote/releases/latest"
+
+        TAG=$(curl -s "$API_URL" | jq -r '.tag_name')
+        FILENAME="oiq-linux-${ARCH}-${TAG}.tar.gz"
+
+        DOWNLOAD_URL=$(curl -s "$API_URL" | jq -r ".assets[] | select(.name == \"$FILENAME\") | .browser_download_url")
+
+        if [ -z "$DOWNLOAD_URL" ]; then
+          echo "Failed to find release asset: $FILENAME"
+          exit 1
+        fi
+
+        echo "Downloading $DOWNLOAD_URL"
+        curl -sL "$DOWNLOAD_URL" | tar -xz
+        chmod +x oiq
+
+    - name: Run oiq and output JSON
+      shell: bash
+      run: |
+        curl -s -o prices.csv https://oiq.terrateam.io/prices.csv
+        ./oiq match --pricesheet prices.csv "${{ inputs.plan-path }}" | ./oiq price --format=json > oiq.json
+
+    - name: Format PR comment
+      shell: python
+      run: |
+        import json
+        from pathlib import Path
+
+        with open("oiq.json") as f:
+            data = json.load(f)
+
+        total_min = data["price"]["min"]
+        total_max = data["price"]["max"]
+
+        if total_min == 0 and total_max == 0:
+            Path("oiq-comment.md").write_text("")
+            exit(0)
+
+        lines = []
+        lines.append("### 💸 OpenInfraQuote Cost Estimate\n")
+        lines.append(f"**Estimated change:** ${total_min:.2f} – ${total_max:.2f}/month\n")
+        lines.append("| Resource | Type | Change | Min Price (USD) | Max Price (USD) |")
+        lines.append("|----------|------|--------|------------------|------------------|")
+
+        for r in data["resources"]:
+            name = r.get("name", r.get("address", ""))
+            typ = r["type"]
+            change = r["change"]
+            min_price = r["price"]["min"]
+            max_price = r["price"]["max"]
+            lines.append(f"| {name} | {typ} | {change} | ${min_price:.2f} | ${max_price:.2f} |")
+
+        with open("oiq-comment.md", "w") as out:
+            out.write("\n".join(lines))
+
+    - name: Comment on PR
+      if: ${{ inputs.comment-on-pr == 'true' && github.event.pull_request.number != '' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: |
+        if [[ -s oiq-comment.md ]]; then
+          gh pr comment "${{ github.event.pull_request.number }}" \
+            --body "$(cat oiq-comment.md)"
+        else
+          echo "No comment posted."
+        fi
