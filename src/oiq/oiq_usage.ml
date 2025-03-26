@@ -35,6 +35,11 @@ module Entry = struct
     [@@deriving yojson]
   end
 
+  type accessor = {
+    get : Usage.t -> int Oiq_range.t;
+    set : int Oiq_range.t -> Usage.t -> Usage.t;
+  }
+
   type t = {
     description : string option;
     divisor : int option;
@@ -46,6 +51,41 @@ module Entry = struct
   let match_set t = t.match_set
   let description t = t.description
   let divisor t = t.divisor
+
+  let bound_to_usage_amount accessor { Oiq_range.min; max } t =
+    match accessor.get t.usage with
+    | { Oiq_range.max = usage_max; _ } when usage_max < min ->
+        (* The usage described in this entry does not overlap with the usage
+           amount passed in. *)
+        None
+    | { Oiq_range.min = usage_min; max = usage_max } ->
+        let diff = max - min in
+        let consumption = usage_max - min in
+        Some
+          {
+            t with
+            usage =
+              accessor.set
+                (Oiq_range.make
+                   ~min:(CCInt.max 0 (CCInt.min usage_min max - min))
+                   ~max:(CCInt.min consumption diff))
+                t.usage;
+          }
+
+  let hours =
+    {
+      get = (fun { Usage.hours; _ } -> hours);
+      set = (fun hours usage -> { usage with Usage.hours });
+    }
+
+  let operations =
+    {
+      get = (fun { Usage.operations; _ } -> operations);
+      set = (fun operations usage -> { usage with Usage.operations });
+    }
+
+  let data =
+    { get = (fun { Usage.data; _ } -> data); set = (fun data usage -> { usage with Usage.data }) }
 
   let to_yojson { usage; match_set; description; divisor } =
     P.to_yojson
