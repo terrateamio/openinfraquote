@@ -85,7 +85,7 @@ jobs:
           VERSION: ${{ env.VERSION }}
 
   upload-binaries:
-    name: Upload binary tarballs
+    name: Upload Linux binary tarballs
     needs: manifest
     strategy:
       matrix:
@@ -120,5 +120,46 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: oiq-linux-${{ matrix.arch }}-${{ env.VERSION }}.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  upload-darwin:
+    name: Upload macOS binary tarball
+    runs-on: macos-latest
+    needs: manifest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Extract version from tag
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@v4
+
+      - name: Set up OCaml
+        uses: ocaml/setup-ocaml@v2
+        with:
+          ocaml-compiler: 5.1.1
+
+      - name: Install dependencies
+        run: |
+          opam install ISO8601 cmdliner containers csv duration logs pds ppx_blob ppx_deriving ppx_deriving_yojson uri yojson -y
+          eval $(opam env)
+          pds
+
+      - name: Build binary
+        run: |
+          eval $(opam env)
+          make release
+          cp build/release/oiq_cli/oiq_cli.native oiq
+          chmod +x oiq
+
+      - name: Create tarball
+        run: tar -czf oiq-darwin-amd64-${VERSION}.tar.gz oiq
+
+      - name: Upload to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: oiq-darwin-amd64-${{ env.VERSION }}.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
