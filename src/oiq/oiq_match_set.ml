@@ -24,6 +24,7 @@ let of_string s =
 let to_list t = Ms.to_list t
 let subset ~super sub = Ms.subset sub super
 let union = Ms.union
+let find_by_key key t = CCList.find_opt CCFun.(fst %> CCString.equal key) @@ to_list t
 
 let query ~super query =
   let super_list = Ms.to_list super in

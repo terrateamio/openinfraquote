@@ -42,6 +42,99 @@ type t = {
 }
 [@@deriving to_yojson]
 
+(* Given a usage entry and a list of products, if the products have start/end
+   usage amounts, make separate products of each distinct usage amount of bound
+   the usage to that start/end usage.  This way we can price each individual
+   usage range.
+
+
+   WARNING: This can produce incoherent prices.  Currently, given a list of
+   products, we have no way of knowing if a usage amount correspond to
+   particular sections of the same product, so we just mix and match.
+
+   For example, consider a product that has usage prices from (0, 10), (10, 20).
+   And then it also has multiple regions.  Maybe region-1 has the lowest price
+   for (0, 10) usage range but region-2 has the lowest for (10, 20).  We would
+   price this resource at (0, 10) from region-1 and (10, 20) on region-2
+   (assuming no region has been specified as a filter).  But obviously the
+   resource is only in one region.  Probably the solution here is to include
+   some identifier in the pricing match set that groups the usage amounts
+   together. *)
+let apply_usage_amount entry products =
+  let module Usage_range_map = CCMap.Make (struct
+    type t = int Oiq_range.t * [ `By_hour | `By_operation | `By_data ] [@@deriving ord]
+  end) in
+  (* We depend on the pricing sheet generator to ensure that:
+
+     - If any product has [start_usage_amount] it also has [end_usage_amount].
+
+     - If any product has [start_usage_amount] all products that match this
+       usage have [end_usage_amount].  *)
+  let has_usage_amount =
+    CCList.exists
+      (fun product ->
+        let ms = Oiq_prices.Product.pricing_match_set product in
+        let module P = struct
+          type t = (string * string) option [@@deriving show]
+        end in
+        match
+          ( Oiq_match_set.find_by_key "start_usage_amount" ms,
+            Oiq_match_set.find_by_key "end_usage_amount" ms )
+        with
+        | Some _, Some _ -> true
+        | None, None -> false
+        | Some _, None | None, Some _ -> assert false)
+      products
+  in
+  let int_of_usage = function
+    | "Inf" -> CCInt.max_int
+    | v -> CCOption.get_exn_or ("int_of_usage: " ^ v) @@ CCInt.of_string v
+  in
+  if has_usage_amount then
+    let products_grouped_by_usage_amount =
+      CCList.fold_left
+        (fun acc product ->
+          let ms = Oiq_prices.Product.pricing_match_set product in
+          let start_usage_amount =
+            int_of_usage
+            @@ snd
+            @@ CCOption.get_exn_or "start_usage_amount"
+            @@ Oiq_match_set.find_by_key "start_usage_amount" ms
+          in
+          let end_usage_amount =
+            int_of_usage
+            @@ snd
+            @@ CCOption.get_exn_or "end_usage_amount"
+            @@ Oiq_match_set.find_by_key "end_usage_amount" ms
+          in
+          let range = Oiq_range.make ~min:start_usage_amount ~max:end_usage_amount in
+          let priced_by =
+            match Oiq_prices.Product.price product with
+            | Oiq_prices.Price.Per_hour _ -> `By_hour
+            | Oiq_prices.Price.Per_operation _ -> `By_operation
+            | Oiq_prices.Price.Per_data _ -> `By_data
+          in
+          Usage_range_map.add_to_list (range, priced_by) product acc)
+        Usage_range_map.empty
+        products
+    in
+    (* Given the grouped products, create new entry and products list by
+       bounding the entry to the group's range.  A usage range may be too little
+       for a group's range, so filter those out. *)
+    CCList.filter_map (fun ((usage_range, priced_by), products) ->
+        match priced_by with
+        | `By_hour ->
+            CCOption.map (fun entry -> (entry, products))
+            @@ Oiq_usage.Entry.bound_to_usage_amount Oiq_usage.Entry.hours usage_range entry
+        | `By_operation ->
+            CCOption.map (fun entry -> (entry, products))
+            @@ Oiq_usage.Entry.bound_to_usage_amount Oiq_usage.Entry.operations usage_range entry
+        | `By_data ->
+            CCOption.map (fun entry -> (entry, products))
+            @@ Oiq_usage.Entry.bound_to_usage_amount Oiq_usage.Entry.data usage_range entry)
+    @@ Usage_range_map.to_list products_grouped_by_usage_amount
+  else [ (entry, products) ]
+
 let hours f = CCFun.(Oiq_usage.Usage.hours %> f %> CCFloat.of_int)
 let operations f = CCFun.(Oiq_usage.Usage.operations %> f %> CCFloat.of_int)
 let data f = CCFun.(Oiq_usage.Usage.data %> f %> CCFloat.of_int)
@@ -68,7 +161,7 @@ let price_products entry products =
          products
   in
   match (CCList.head_opt priced_products, CCList.head_opt @@ CCList.rev priced_products) with
-  | Some min, Some max -> (min, max)
+  | Some min, Some max -> Oiq_range.make ~min ~max
   | _, _ -> assert false
 
 let filter_products match_query matches =
@@ -127,22 +220,33 @@ let price ~usage ~match_query match_file =
             Entry_map.empty
             resource_products
         in
-        let products =
+        let priced_products =
           Entry_map.fold
             (fun entry products acc ->
-              let (product_min, min), (product_max, max) = price_products entry products in
-              { Product.price = { Oiq_range.min; max }; product_max; product_min; usage = entry }
-              :: acc)
+              let priced =
+                CCList.map (fun (entry, products) ->
+                    let { Oiq_range.min = product_min, min; max = product_max, max } =
+                      price_products entry products
+                    in
+                    {
+                      Product.price = { Oiq_range.min; max };
+                      product_max;
+                      product_min;
+                      usage = entry;
+                    })
+                @@ apply_usage_amount entry products
+              in
+              priced @ acc)
             usage_entries
             []
         in
-        if not (CCList.is_empty products) then
+        if not (CCList.is_empty priced_products) then
           let d = if Oiq_match_file.Match.change match_ = `Remove then CCFloat.neg else CCFun.id in
           let price =
             CCList.fold_left
               (fun acc { Product.price; _ } -> Price_range.sum acc price)
               Price_range.empty
-              products
+              priced_products
           in
           Some
             {
@@ -151,7 +255,7 @@ let price ~usage ~match_query match_file =
               name = Oiq_tf.Resource.name resource;
               price = { Oiq_range.min = d price.Oiq_range.min; max = d price.Oiq_range.max };
               type_ = Oiq_tf.Resource.type_ resource;
-              products;
+              products = priced_products;
             }
         else None)
     @@ filter_products match_query
