@@ -2,6 +2,8 @@
 
 # OpenInfraQuote
 
+![Comedian, Chelsea Lately, faces the camera and says, "I am a bold artistic voice", with a brief pause before saying, "with a lot of credit card debt"](docs/bold_artistic_voice.gif)
+
 Infrastructure cost estimation from Terraform plans and state files
 
 [![Stars](https://img.shields.io/github/stars/terrateamio/openinfraquote)](https://github.com/terrateamio/openinfraquote/stargazers)
