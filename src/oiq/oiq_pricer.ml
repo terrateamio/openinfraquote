@@ -35,6 +35,7 @@ end
 type t = {
   match_date : string;
   match_query : string list;
+  prev_price : Price_range.t;
   price : Price_range.t;
   price_date : string;
   price_diff : Price_range.t;
@@ -287,6 +288,7 @@ let price ~usage ~match_query match_file =
   {
     match_date = Oiq_match_file.date match_file;
     match_query;
+    prev_price = Oiq_range.append ( -. ) price price_diff;
     price;
     price_date = ISO8601.Permissive.string_of_datetime (Unix.gettimeofday ());
     price_diff;
@@ -298,6 +300,8 @@ let pretty_to_string t =
     "Match date: %s\n\
      Price date: %s\n\
      Match query: %s\n\
+     Min Previous Price: %0.2f USD\n\
+     Max Previous Price: %0.2f USD\n\
      Min Price: %0.2f USD\n\
      Max Price: %0.2f USD\n\
      Min Price Diff: %0.2f USD\n\
@@ -308,6 +312,8 @@ let pretty_to_string t =
     t.match_date
     t.price_date
     (CCString.concat " | " t.match_query)
+    t.prev_price.Oiq_range.min
+    t.prev_price.Oiq_range.max
     t.price.Oiq_range.min
     t.price.Oiq_range.max
     t.price_diff.Oiq_range.min
