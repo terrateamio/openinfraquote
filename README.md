@@ -55,6 +55,19 @@ Download the latest release for your system:
    oiq --help
    ```
 ---
+## GitHub Action for OpenInfraQuote
+
+Automate your infrastructure cost estimates with OpenInfraQuote by adding the following step to your GitHub Actions workflow file:
+
+```yml
+- name: Run OpenInfraQuote
+  uses: terrateamio/openinfraquote-action@v1
+  with:
+    plan-path: tfplan.json
+    comment-on-pr: true
+```
+
+For more information, visit the [OpenInfraQuote GitHub Action Marketplace page](https://github.com/marketplace/actions/openinfraquote).
 
 ## Examples
 
