@@ -1,7 +1,7 @@
 [
   {
     "description": "Default AWS EC2 Instance hours (according to ChatGPT)",
-    "match_query": "type = aws_instance and service_class = instance and purchase_option = on_demand",
+    "match_query": "type = aws_instance and service_class = instance and purchase_option = on_demand and os = linux",
     "usage": {
       "time": 730
     }
