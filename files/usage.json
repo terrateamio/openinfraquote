@@ -9,6 +9,10 @@
       {
         "key": "service_class",
         "value": "instance"
+      },
+      {
+        "key": "purchase_option",
+        "value": "on_demand"
       }
     ],
     "usage": {
@@ -25,6 +29,10 @@
       {
         "key": "tier",
         "value": "1"
+      },
+      {
+        "key": "purchase_option",
+        "value": "on_demand"
       }
     ],
     "usage": {
@@ -41,6 +49,10 @@
       {
         "key": "tier",
         "value": "2"
+      },
+      {
+        "key": "purchase_option",
+        "value": "on_demand"
       }
     ],
     "usage": {
@@ -57,6 +69,14 @@
       {
         "key": "service_class",
         "value": "storage"
+      },
+      {
+        "key": "storage_class",
+        "value": "general_purpose"
+      },
+      {
+        "key": "purchase_option",
+        "value": "on_demand"
       }
     ],
     "usage": {
@@ -73,6 +93,10 @@
       {
         "key": "service_class",
         "value": "storage"
+      },
+      {
+        "key": "purchase_option",
+        "value": "on_demand"
       }
     ],
     "usage": {
@@ -89,6 +113,10 @@
       {
         "key": "service_class",
         "value": "iops"
+      },
+      {
+        "key": "values.storage_type",
+        "value": "standard"
       }
     ],
     "usage": {
@@ -105,6 +133,10 @@
       {
         "key": "service_class",
         "value": "instance"
+      },
+      {
+        "key": "purchase_option",
+        "value": "on_demand"
       }
     ],
     "usage": {

@@ -43,6 +43,39 @@ type t = {
 }
 [@@deriving to_yojson]
 
+(* If products have a provision amount, filter the products out based on if they are within the usage. *)
+let apply_provision_amount entry products =
+  CCList.filter
+    (fun product ->
+      let ms = Oiq_prices.Product.pricing_match_set product in
+      match
+        ( Oiq_match_set.find_by_key "start_provision_amount" ms,
+          Oiq_match_set.find_by_key "end_provision_amount" ms )
+      with
+      | Some (_, start_provision_amount), Some (_, end_provision_amount) ->
+          let start_provision_amount =
+            CCOption.get_exn_or ("start_provision_amount: " ^ start_provision_amount)
+            @@ CCInt.of_string start_provision_amount
+          in
+          let end_provision_amount =
+            CCOption.get_exn_or ("end_provision_amount: " ^ end_provision_amount)
+            @@ CCInt.of_string end_provision_amount
+          in
+          let provision_range =
+            Oiq_range.make ~min:start_provision_amount ~max:end_provision_amount
+          in
+          let priced_by =
+            match Oiq_prices.Product.price product with
+            | Oiq_prices.Price.Per_hour _ -> Oiq_usage.Usage.hours @@ Oiq_usage.Entry.usage entry
+            | Oiq_prices.Price.Per_operation _ ->
+                Oiq_usage.Usage.operations @@ Oiq_usage.Entry.usage entry
+            | Oiq_prices.Price.Per_data _ -> Oiq_usage.Usage.data @@ Oiq_usage.Entry.usage entry
+          in
+          CCOption.is_some @@ Oiq_range.overlap CCInt.compare provision_range priced_by
+      | None, None -> true
+      | Some _, None | None, Some _ -> assert false)
+    products
+
 (* Given a usage entry and a list of products, if the products have start/end
    usage amounts, make separate products of each distinct usage amount of bound
    the usage to that start/end usage.  This way we can price each individual
@@ -75,9 +108,6 @@ let apply_usage_amount entry products =
     CCList.exists
       (fun product ->
         let ms = Oiq_prices.Product.pricing_match_set product in
-        let module P = struct
-          type t = (string * string) option [@@deriving show]
-        end in
         match
           ( Oiq_match_set.find_by_key "start_usage_amount" ms,
             Oiq_match_set.find_by_key "end_usage_amount" ms )
@@ -235,7 +265,9 @@ let price ~usage ~match_query match_file =
                       product_min;
                       usage = entry;
                     })
-                @@ apply_usage_amount entry products
+                @@ CCList.filter CCFun.(snd %> CCList.is_empty %> not)
+                @@ apply_usage_amount entry
+                @@ apply_provision_amount entry products
               in
               priced @ acc)
             usage_entries
