@@ -149,6 +149,7 @@ jobs:
 
       - name: Build binary
         run: |
+          echo "${VERSION}" > version
           eval $(opam env)
           make release test
           cp build/release/oiq_cli/oiq_cli.native oiq

@@ -1,4 +1,6 @@
 module Cli = struct
+  let version = CCString.trim [%blob "../../version"]
+
   module C = Cmdliner
 
   (* <resource_file> <resource_file> ... *)
@@ -140,5 +142,5 @@ let price usage input output_format match_query region =
       exit 1
 
 let () =
-  let info = Cmdliner.Cmd.info "oiq" in
+  let info = Cmdliner.Cmd.info ~version:Cli.version "oiq" in
   exit @@ Cmdliner.Cmd.eval @@ Cmdliner.Cmd.group info [ Cli.match_cmd match_; Cli.price_cmd price ]
