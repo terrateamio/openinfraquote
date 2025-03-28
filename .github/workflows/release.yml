@@ -150,7 +150,7 @@ jobs:
       - name: Build binary
         run: |
           eval $(opam env)
-          make release
+          make release test
           cp build/release/oiq_cli/oiq_cli.native oiq
           chmod +x oiq
 
