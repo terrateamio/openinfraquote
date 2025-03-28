@@ -31,10 +31,6 @@
         "value": "1"
       },
       {
-        "key": "storage_class",
-        "value": "general_purpose"
-      },
-      {
         "key": "purchase_option",
         "value": "on_demand"
       }
@@ -53,10 +49,6 @@
       {
         "key": "tier",
         "value": "2"
-      },
-      {
-        "key": "storage_class",
-        "value": "general_purpose"
       },
       {
         "key": "purchase_option",
