@@ -41,7 +41,7 @@ You can install OpenInfraQuote by downloading the binary.
 Before running a cost estimate, download the latest pricing sheet:
 
 ```sh
-curl -o prices.csv https://oiq.terrateam.io/prices.csv
+curl -s https://oiq.terrateam.io/prices.csv.gz | gunzip > prices.csv
 ```
 
 ### Install OpenInfraQuote
