@@ -6,7 +6,7 @@ all: .merlin
 	touch dune dune-project dune-workspace
 	pds -f | merlin-of-pds > .merlin
 
-pds.mk: pds.conf $(wildcard src/*/*) $(wildcard test/*/*)
+pds.mk: pds.conf $(wildcard src/*/*) $(wildcard tests/*/*)
 	pds
 
 -include pds.mk

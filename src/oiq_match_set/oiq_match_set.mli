@@ -13,7 +13,3 @@ val find_by_key : string -> t -> (string * string) option
     and the other [foo=baz], only one will be represented in the result and it is not specified
     which. *)
 val union : t -> t -> t
-
-(** Performs a query against [super]. [query ~super query] returns [false] if all keys in [query]
-    exiist in [super] but not all values match. Otherwise returns [true]. *)
-val query : super:t -> t -> bool

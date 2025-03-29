@@ -17,7 +17,7 @@ val match_ :
 
 val price :
   ?usage:in_channel ->
-  match_query:Oiq_match_set.t list ->
+  ?match_query:Oiq_match_query.t ->
   input:in_channel ->
   unit ->
-  (Oiq_pricer.t, price_err) result
+  (Oiq_pricer.t, [> price_err ]) result
