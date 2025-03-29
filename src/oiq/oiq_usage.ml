@@ -115,3 +115,5 @@ let of_channel in_chan =
 
 let match_ ms t =
   CCList.find_opt (fun { Entry.match_query; _ } -> Oiq_match_query.eval ms match_query) t.entries
+
+let to_yojson { entries } = [%to_yojson: Entry.t list] entries

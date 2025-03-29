@@ -63,7 +63,7 @@ module Entry : sig
 end
 
 type of_channel_err = [ `Usage_file_err of string ] [@@deriving show]
-type t
+type t [@@deriving to_yojson]
 
 val default : unit -> t
 val of_channel : in_channel -> (t, [> of_channel_err ]) result
