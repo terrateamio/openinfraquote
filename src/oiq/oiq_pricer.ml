@@ -66,7 +66,7 @@ let apply_provision_amount entry products =
           in
           let priced_by =
             match Oiq_prices.Product.price product with
-            | Oiq_prices.Price.Per_hour _ -> Oiq_usage.Usage.hours @@ Oiq_usage.Entry.usage entry
+            | Oiq_prices.Price.Per_time _ -> Oiq_usage.Usage.time @@ Oiq_usage.Entry.usage entry
             | Oiq_prices.Price.Per_operation _ ->
                 Oiq_usage.Usage.operations @@ Oiq_usage.Entry.usage entry
             | Oiq_prices.Price.Per_data _ -> Oiq_usage.Usage.data @@ Oiq_usage.Entry.usage entry
@@ -96,7 +96,7 @@ let apply_provision_amount entry products =
    together. *)
 let apply_usage_amount entry products =
   let module Usage_range_map = CCMap.Make (struct
-    type t = int Oiq_range.t * [ `By_hour | `By_operation | `By_data ] [@@deriving ord]
+    type t = int Oiq_range.t * [ `By_time | `By_operation | `By_data ] [@@deriving ord]
   end) in
   (* We depend on the pricing sheet generator to ensure that:
 
@@ -141,7 +141,7 @@ let apply_usage_amount entry products =
           let range = Oiq_range.make ~min:start_usage_amount ~max:end_usage_amount in
           let priced_by =
             match Oiq_prices.Product.price product with
-            | Oiq_prices.Price.Per_hour _ -> `By_hour
+            | Oiq_prices.Price.Per_time _ -> `By_time
             | Oiq_prices.Price.Per_operation _ -> `By_operation
             | Oiq_prices.Price.Per_data _ -> `By_data
           in
@@ -154,9 +154,9 @@ let apply_usage_amount entry products =
        for a group's range, so filter those out. *)
     CCList.filter_map (fun ((usage_range, priced_by), products) ->
         match priced_by with
-        | `By_hour ->
+        | `By_time ->
             CCOption.map (fun entry -> (entry, products))
-            @@ Oiq_usage.Entry.bound_to_usage_amount Oiq_usage.Entry.hours usage_range entry
+            @@ Oiq_usage.Entry.bound_to_usage_amount Oiq_usage.Entry.time usage_range entry
         | `By_operation ->
             CCOption.map (fun entry -> (entry, products))
             @@ Oiq_usage.Entry.bound_to_usage_amount Oiq_usage.Entry.operations usage_range entry
@@ -166,7 +166,7 @@ let apply_usage_amount entry products =
     @@ Usage_range_map.to_list products_grouped_by_usage_amount
   else [ (entry, products) ]
 
-let hours f = CCFun.(Oiq_usage.Usage.hours %> f %> CCFloat.of_int)
+let time f = CCFun.(Oiq_usage.Usage.time %> f %> CCFloat.of_int)
 let operations f = CCFun.(Oiq_usage.Usage.operations %> f %> CCFloat.of_int)
 let data f = CCFun.(Oiq_usage.Usage.data %> f %> CCFloat.of_int)
 
@@ -180,7 +180,7 @@ let price_products entry products =
            let price = Oiq_prices.Product.price product in
            let quote f =
              match price with
-             | Oiq_prices.Price.Per_hour price -> hours f usage /. divisor *. price
+             | Oiq_prices.Price.Per_time price -> time f usage /. divisor *. price
              | Oiq_prices.Price.Per_operation price -> operations f usage /. divisor *. price
              | Oiq_prices.Price.Per_data price -> data f usage /. divisor *. price
            in

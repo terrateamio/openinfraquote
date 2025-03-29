@@ -3,7 +3,7 @@
     "description": "Default AWS EC2 Instance hours (according to ChatGPT)",
     "match_query": "type = aws_instance and service_class = instance and purchase_option = on_demand",
     "usage": {
-      "hours": 730
+      "time": 730
     }
   },
   {
@@ -45,7 +45,7 @@
     "description": "Default AWS RDS Instance hours",
     "match_query": "type = aws_db_instance and service_class = instance and purchase_option = on_demand",
     "usage": {
-      "hours": 730
+      "time": 730
     }
   },
   {
@@ -66,14 +66,14 @@
     "description": "Default AWS Lambda monthly duration, ARM (seconds)",
     "match_query": "type = aws_lambda_function and service_class = duration and values.architectures=arm64 and arch=arm64",
     "usage": {
-      "hours": 1000000
+      "time": 1000000
     }
   },
   {
     "description": "Default AWS Lambda monthly duration, x86 (seconds)",
     "match_query": "type = aws_lambda_function and service_class = duration and (not values.architectures or values.architectures=x86) and arch=x86",
     "usage": {
-      "hours": 1000000
+      "time": 1000000
     }
   }
 ]

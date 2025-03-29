@@ -1,6 +1,6 @@
 module Price : sig
   type t =
-    | Per_hour of float
+    | Per_time of float
     | Per_operation of float
     | Per_data of float
 end
