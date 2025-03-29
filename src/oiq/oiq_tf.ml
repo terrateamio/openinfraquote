@@ -55,13 +55,7 @@ module Resource = struct
             acc @ flattened)
           []
           fields
-    | `List items ->
-        List.mapi
-          (fun idx item ->
-            let new_prefix = prefix ^ "." ^ string_of_int idx in
-            flatten ~prefix:new_prefix item)
-          items
-        |> List.concat
+    | `List items -> List.map (fun item -> flatten ~prefix item) items |> List.concat
     | `String s -> [ (prefix, s) ]
     | `Int i -> [ (prefix, string_of_int i) ]
     | `Float f -> [ (prefix, string_of_float f) ]
