@@ -7,13 +7,13 @@ module Usage = struct
   let default = { Oiq_range.min = 0; max = 0 }
 
   type t = {
-    hours : int Oiq_range.t; [@default default] [@of_yojson range_of_yojson]
+    time : int Oiq_range.t; [@default default] [@of_yojson range_of_yojson]
     operations : int Oiq_range.t; [@default default] [@of_yojson range_of_yojson]
     data : int Oiq_range.t; [@default default] [@of_yojson range_of_yojson]
   }
   [@@deriving yojson]
 
-  let hours t = t.hours
+  let time t = t.time
   let operations t = t.operations
   let data t = t.data
 end
@@ -66,11 +66,8 @@ module Entry = struct
                 t.usage;
           }
 
-  let hours =
-    {
-      get = (fun { Usage.hours; _ } -> hours);
-      set = (fun hours usage -> { usage with Usage.hours });
-    }
+  let time =
+    { get = (fun { Usage.time; _ } -> time); set = (fun time usage -> { usage with Usage.time }) }
 
   let operations =
     {

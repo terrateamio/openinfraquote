@@ -8,7 +8,7 @@
 module Usage : sig
   type t [@@deriving yojson]
 
-  val hours : t -> int Oiq_range.t
+  val time : t -> int Oiq_range.t
   val operations : t -> int Oiq_range.t
   val data : t -> int Oiq_range.t
 end
@@ -57,7 +57,7 @@ module Entry : sig
       there is no overlap. *)
   val bound_to_usage_amount : accessor -> int Oiq_range.t -> t -> t option
 
-  val hours : accessor
+  val time : accessor
   val operations : accessor
   val data : accessor
 end
