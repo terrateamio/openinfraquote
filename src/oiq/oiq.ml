@@ -59,7 +59,7 @@ let match_ ~pricesheet ~resource_files ~output =
         Ok ()
       with Match_err err -> Error err)
 
-let price ?usage ~match_query ~input () =
+let price ?usage ?match_query ~input () =
   let open CCResult.Infix in
   let read_match_file =
     try
@@ -69,4 +69,4 @@ let price ?usage ~match_query ~input () =
   in
   CCOption.map_or ~default:(Ok (Oiq_usage.default ())) Oiq_usage.of_channel usage
   >>= fun usage ->
-  read_match_file >>= fun match_file -> Ok (Oiq_pricer.price ~usage ~match_query match_file)
+  read_match_file >>= fun match_file -> Ok (Oiq_pricer.price ?match_query ~usage match_file)

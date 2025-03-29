@@ -18,7 +18,7 @@ module Entry : sig
   type t [@@deriving yojson]
 
   val usage : t -> Usage.t
-  val match_set : t -> Oiq_match_set.t
+  val match_query : t -> Oiq_match_query.t
   val description : t -> string option
   val divisor : t -> int option
 

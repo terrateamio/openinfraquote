@@ -34,7 +34,7 @@ end
 
 type t = {
   match_date : string;
-  match_query : string list;
+  match_query : string;
   prev_price : Price_range.t;
   price : Price_range.t;
   price_date : string;
@@ -196,37 +196,40 @@ let price_products entry products =
   | _, _ -> assert false
 
 let filter_products match_query matches =
-  if CCList.is_empty match_query then matches
-  else
-    CCList.map
-      (fun match_ ->
-        let resource_ms = Oiq_tf.Resource.to_match_set @@ Oiq_match_file.Match.resource match_ in
-        let products =
-          CCList.filter
-            (fun product ->
-              let ms =
-                Oiq_match_set.union
-                  resource_ms
-                  (Oiq_match_set.union
-                     (Oiq_prices.Product.pricing_match_set product)
-                     (Oiq_prices.Product.to_match_set product))
-              in
-              CCList.exists (fun query -> Oiq_match_set.query ~super:ms query) match_query)
-            (Oiq_match_file.Match.products match_)
-        in
-        Oiq_match_file.Match.make
-          (Oiq_match_file.Match.resource match_)
-          products
-          (Oiq_match_file.Match.change match_))
-      matches
+  match match_query with
+  | None -> matches
+  | Some match_query ->
+      CCList.map
+        (fun match_ ->
+          let resource_ms = Oiq_tf.Resource.to_match_set @@ Oiq_match_file.Match.resource match_ in
+          let products =
+            CCList.filter
+              (fun product ->
+                let ms =
+                  Oiq_match_set.union
+                    resource_ms
+                    (Oiq_match_set.union
+                       (Oiq_prices.Product.pricing_match_set product)
+                       (Oiq_prices.Product.to_match_set product))
+                in
+                Oiq_match_query.eval ms match_query)
+              (Oiq_match_file.Match.products match_)
+          in
+          Oiq_match_file.Match.make
+            (Oiq_match_file.Match.resource match_)
+            products
+            (Oiq_match_file.Match.change match_))
+        matches
 
-let price ~usage ~match_query match_file =
+let price ?match_query ~usage match_file =
   let priced_resources =
     let module Entry_map = CCMap.Make (struct
       type t = Oiq_usage.Entry.t
 
       let compare e1 e2 =
-        Oiq_match_set.compare (Oiq_usage.Entry.match_set e1) (Oiq_usage.Entry.match_set e2)
+        CCString.compare
+          (Oiq_match_query.to_string (Oiq_usage.Entry.match_query e1))
+          (Oiq_match_query.to_string (Oiq_usage.Entry.match_query e2))
     end) in
     CCList.filter_map (fun match_ ->
         let resource = Oiq_match_file.Match.resource match_ in
@@ -309,14 +312,7 @@ let price ~usage ~match_query match_file =
       Price_range.empty
       priced_resources
   in
-  let match_query =
-    CCList.map
-      (fun query ->
-        CCString.concat " & "
-        @@ CCList.map (fun (k, v) -> k ^ "=" ^ v)
-        @@ Oiq_match_set.to_list query)
-      match_query
-  in
+  let match_query = CCOption.map_or ~default:"" Oiq_match_query.to_string match_query in
   {
     match_date = Oiq_match_file.date match_file;
     match_query;
@@ -343,7 +339,7 @@ let pretty_to_string t =
      %s"
     t.match_date
     t.price_date
-    (CCString.concat " | " t.match_query)
+    t.match_query
     t.prev_price.Oiq_range.min
     t.prev_price.Oiq_range.max
     t.price.Oiq_range.min

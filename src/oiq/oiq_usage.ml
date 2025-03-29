@@ -20,16 +20,10 @@ end
 
 module Entry = struct
   module P = struct
-    type match_set_entry = {
-      key : string;
-      value : string;
-    }
-    [@@deriving yojson]
-
     type t = {
       description : string option;
       divisor : int option; [@default None]
-      match_set : match_set_entry list;
+      match_query : string;
       usage : Usage.t;
     }
     [@@deriving yojson]
@@ -43,12 +37,12 @@ module Entry = struct
   type t = {
     description : string option;
     divisor : int option;
-    match_set : Oiq_match_set.t;
+    match_query : Oiq_match_query.t;
     usage : Usage.t;
   }
 
   let usage t = t.usage
-  let match_set t = t.match_set
+  let match_query t = t.match_query
   let description t = t.description
   let divisor t = t.divisor
 
@@ -87,24 +81,17 @@ module Entry = struct
   let data =
     { get = (fun { Usage.data; _ } -> data); set = (fun data usage -> { usage with Usage.data }) }
 
-  let to_yojson { usage; match_set; description; divisor } =
+  let to_yojson { usage; match_query; description; divisor } =
     P.to_yojson
-      {
-        P.description;
-        usage;
-        match_set =
-          CCList.map (fun (key, value) -> { P.key; value }) @@ Oiq_match_set.to_list match_set;
-        divisor;
-      }
+      { P.description; usage; match_query = Oiq_match_query.to_string match_query; divisor }
 
   let of_yojson json =
     let open CCResult.Infix in
     P.of_yojson json
-    >>= fun { P.description; match_set; usage; divisor } ->
-    let match_set =
-      Oiq_match_set.of_list @@ CCList.map (fun { P.key; value } -> (key, value)) match_set
-    in
-    Ok { description; match_set; usage; divisor }
+    >>= fun { P.description; match_query; usage; divisor } ->
+    CCResult.map_err (fun (#Oiq_match_query.err as err) -> Oiq_match_query.show_err err)
+    @@ Oiq_match_query.of_string match_query
+    >>= fun match_query -> Ok { description; match_query; usage; divisor }
 end
 
 let defaults =
@@ -130,4 +117,4 @@ let of_channel in_chan =
     ([%of_yojson: Entry.t list] json >>= fun entries -> Ok { entries = entries @ defaults })
 
 let match_ ms t =
-  CCList.find_opt (fun { Entry.match_set; _ } -> Oiq_match_set.subset ~super:ms match_set) t.entries
+  CCList.find_opt (fun { Entry.match_query; _ } -> Oiq_match_query.eval ms match_query) t.entries

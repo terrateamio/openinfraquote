@@ -1,160 +1,56 @@
 [
   {
     "description": "Default AWS EC2 Instance hours (according to ChatGPT)",
-    "match_set": [
-      {
-        "key": "type",
-        "value": "aws_instance"
-      },
-      {
-        "key": "service_class",
-        "value": "instance"
-      },
-      {
-        "key": "purchase_option",
-        "value": "on_demand"
-      }
-    ],
+    "match_query": "type = aws_instance and service_class = instance and purchase_option = on_demand",
     "usage": {
       "hours": 730
     }
   },
   {
     "description": "Default number of AWS S3 Bucket PUT, POST, UPDATE, and LIST operations (Tier 1) (Per 1,000)",
-    "match_set": [
-      {
-        "key": "type",
-        "value": "aws_s3_bucket"
-      },
-      {
-        "key": "tier",
-        "value": "1"
-      },
-      {
-        "key": "purchase_option",
-        "value": "on_demand"
-      }
-    ],
+    "match_query": "type = aws_s3_bucket and tier = 1 and purchase_option = on_demand",
     "usage": {
       "operations": 4000000
     }
   },
   {
     "description": "Default number of AWS S3 Bucket GET and other operations (Tier 2) (Per 10,000)",
-    "match_set": [
-      {
-        "key": "type",
-        "value": "aws_s3_bucket"
-      },
-      {
-        "key": "tier",
-        "value": "2"
-      },
-      {
-        "key": "purchase_option",
-        "value": "on_demand"
-      }
-    ],
+    "match_query": "type = aws_s3_bucket and tier = 2 and purchase_option = on_demand",
     "usage": {
       "operations": 50000000
     }
   },
   {
     "description": "Default AWS S3 Bucket storage (Per GB-Month)",
-    "match_set": [
-      {
-        "key": "type",
-        "value": "aws_s3_bucket"
-      },
-      {
-        "key": "service_class",
-        "value": "storage"
-      },
-      {
-        "key": "storage_class",
-        "value": "general_purpose"
-      },
-      {
-        "key": "purchase_option",
-        "value": "on_demand"
-      }
-    ],
+    "match_query": "type = aws_s3_bucket and service_class = storage and purchase_option = on_demand",
     "usage": {
       "data": 900
     }
   },
   {
     "description": "Default AWS RDS storage (Per GB-Month)",
-    "match_set": [
-      {
-        "key": "type",
-        "value": "aws_db_instance"
-      },
-      {
-        "key": "service_class",
-        "value": "storage"
-      },
-      {
-        "key": "purchase_option",
-        "value": "on_demand"
-      }
-    ],
+    "match_query": "type = aws_db_instance and service_class = storage and purchase_option = on_demand",
     "usage": {
       "data": 1
     }
   },
   {
     "description": "Default AWS RDS IOPS (Per 1 million I/O requests)",
-    "match_set": [
-      {
-        "key": "type",
-        "value": "aws_db_instance"
-      },
-      {
-        "key": "service_class",
-        "value": "iops"
-      },
-      {
-        "key": "values.storage_type",
-        "value": "standard"
-      }
-    ],
+    "match_query": "type = aws_db_instance and service_class = iops and values.storage_type = standard",
     "usage": {
       "operations": 200000000
     }
   },
   {
     "description": "Default AWS RDS Instance hours",
-    "match_set": [
-      {
-        "key": "type",
-        "value": "aws_db_instance"
-      },
-      {
-        "key": "service_class",
-        "value": "instance"
-      },
-      {
-        "key": "purchase_option",
-        "value": "on_demand"
-      }
-    ],
+    "match_query": "type = aws_db_instance and service_class = instance and purchase_option = on_demand",
     "usage": {
       "hours": 730
     }
   },
   {
     "description": "Default AWS SQS IOPS (Per 1 million)",
-    "match_set": [
-      {
-        "key": "type",
-        "value": "aws_sqs_queue"
-      },
-      {
-        "key": "service_class",
-        "value": "requests"
-      }
-    ],
+    "match_query": "type = aws_sqs_queue and service_class = requests",
     "usage": {
       "operations": 50000000
     }

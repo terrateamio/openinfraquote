@@ -1,0 +1,131 @@
+start: RPAREN
+##
+## Ends in an error in state: 0.
+##
+## start' -> . start [ # ]
+##
+## The known suffix of the stack is as follows:
+##
+##
+
+UNEXPECTED_RPAREN
+
+start: STRING EQUAL RPAREN
+##
+## Ends in an error in state: 2.
+##
+## binary_op -> STRING EQUAL . STRING [ RPAREN OR EOF AND ]
+##
+## The known suffix of the stack is as follows:
+## STRING EQUAL
+##
+
+MISSING_EXPR_RHS_EQUALS
+
+start: NOT RPAREN
+##
+## Ends in an error in state: 4.
+##
+## expr -> NOT . expr [ RPAREN OR EOF AND ]
+##
+## The known suffix of the stack is as follows:
+## NOT
+##
+
+MISSING_NOT_EXPR
+
+start: LPAREN RPAREN
+##
+## Ends in an error in state: 5.
+##
+## expr -> LPAREN . expr RPAREN [ RPAREN OR EOF AND ]
+##
+## The known suffix of the stack is as follows:
+## LPAREN
+##
+
+MISSING_RPAREN
+
+start: LPAREN STRING STRING
+##
+## Ends in an error in state: 6.
+##
+## binary_op -> expr . AND expr [ RPAREN OR AND ]
+## binary_op -> expr . OR expr [ RPAREN OR AND ]
+## expr -> LPAREN expr . RPAREN [ RPAREN OR EOF AND ]
+##
+## The known suffix of the stack is as follows:
+## LPAREN expr
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 1, spurious reduction of production expr -> STRING
+##
+
+MISSING_EXPR_OR_RPAREN
+
+start: STRING OR RPAREN
+##
+## Ends in an error in state: 8.
+##
+## binary_op -> expr OR . expr [ RPAREN OR EOF AND ]
+##
+## The known suffix of the stack is as follows:
+## expr OR
+##
+
+MISSING_RHS_OR
+
+start: STRING OR STRING STRING
+##
+## Ends in an error in state: 9.
+##
+## binary_op -> expr . AND expr [ RPAREN OR EOF AND ]
+## binary_op -> expr . OR expr [ RPAREN OR EOF AND ]
+## binary_op -> expr OR expr . [ RPAREN OR EOF AND ]
+##
+## The known suffix of the stack is as follows:
+## expr OR expr
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 1, spurious reduction of production expr -> STRING
+##
+
+EXPECTED_OP_FOUND_STRING
+
+start: STRING AND RPAREN
+##
+## Ends in an error in state: 10.
+##
+## binary_op -> expr AND . expr [ RPAREN OR EOF AND ]
+##
+## The known suffix of the stack is as follows:
+## expr AND
+##
+
+MISSING_RHS_AND
+
+start: STRING STRING
+##
+## Ends in an error in state: 16.
+##
+## binary_op -> expr . AND expr [ OR EOF AND ]
+## binary_op -> expr . OR expr [ OR EOF AND ]
+## start -> expr . EOF [ # ]
+##
+## The known suffix of the stack is as follows:
+## expr
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 1, spurious reduction of production expr -> STRING
+##
+
+EXPECTED_OP_FOUND_STRING

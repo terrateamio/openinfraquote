@@ -32,19 +32,22 @@ module Cli = struct
   let match_query =
     let docv = "QUERY" in
     let doc =
-      "Specify a match query.  Can be provided multiple times and at least one must match.  A \
-       match is only performed if the keys specified in the match query exist in the matched \
-       product.  For example, if the match query is 'region=us-east-1', this will be tested \
-       against products which have a region in their pricing.  Use '&' to specify multiple entries \
-       in a single match query that must all match.  For example to match region us-east-1 for \
-       type aws_instance: 'region=us-east-1 & type=aws_instance'"
+      "Specify a match query.  This is applied to products prior to pricing, providing the ability \
+       to remove or select specific products.  The query is tested against a product and the \
+       resource it is associated with and both can be queried.  For example, to price an s3 bucket \
+       named 'my_bucket' according to region us-east-1 and every other resource according to \
+       us-west-1: --mq '(type = aws_s3_bucket and name = my_bucket and region = us-east-1) or (not \
+       (type = aws_s3_bucket and name = my_bucket) and region=us-west-1'"
     in
-    C.Arg.(value & opt_all string [] & info [ "mq"; "match-query" ] ~docv ~doc)
+    C.Arg.(value & opt (some string) None & info [ "mq"; "match-query" ] ~docv ~doc)
 
   let region =
     let docv = "REGION" in
-    let doc = "Specify a region to price against.  This is sugar for --mq 'region=<some_region>'" in
-    C.Arg.(value & opt (some string) None & info [ "region" ] ~docv ~doc)
+    let doc =
+      "Specify a region to price against.  This is sugar for --mq 'not region or \
+       region=<some_region>'"
+    in
+    C.Arg.(value & opt_all string [] & info [ "region" ] ~docv ~doc)
 
   let match_cmd f =
     let doc = "Match resource to pricing rows." in
@@ -104,7 +107,7 @@ let match_ pricesheet resource_files output_path =
       Logs.err (fun m -> m "%a" Oiq.pp_match_err err);
       exit 1
 
-let price usage input output_format match_query region =
+let price usage input output_format match_query regions =
   setup_log ();
   let with_input f =
     match input with
@@ -116,28 +119,36 @@ let price usage input output_format match_query region =
     | Some fname -> CCIO.with_in fname (fun io -> f (Some io))
     | None -> f None
   in
+  let region_query =
+    if CCList.is_empty regions then None
+    else
+      Some
+        ("not region or ("
+        ^ (CCString.concat " or " @@ CCList.map (fun r -> "region=" ^ r) regions)
+        ^ ")")
+  in
   let match_query =
-    CCList.map
-      (fun s ->
-        s
-        |> CCString.split_on_char '&'
-        |> CCList.map CCString.trim
-        |> CCList.map (fun s ->
-               match CCString.Split.left ~by:"=" s with
-               | Some (key, v) -> (key, v)
-               | None -> raise (Failure "nyi"))
-        |> Oiq_match_set.of_list)
-      (match_query @ CCOption.map_or ~default:[] (fun region -> [ "region=" ^ region ]) region)
+    match (region_query, match_query) with
+    | Some region_query, Some match_query ->
+        Some (Printf.sprintf "(%s) and (%s)" region_query match_query)
+    | Some q, None | None, Some q -> Some q
+    | None, None -> None
   in
   match
+    let open CCResult.Infix in
+    CCResult.opt_map Oiq_match_query.of_string match_query
+    >>= fun match_query ->
     with_input (fun input ->
-        maybe_with_usage (fun usage -> Oiq.price ?usage ~match_query ~input ()))
+        maybe_with_usage (fun usage -> Oiq.price ?usage ?match_query ~input ()))
   with
   | Ok priced -> (
       match output_format with
       | `Text -> print_endline @@ Oiq_pricer.pretty_to_string priced
       | `Json -> print_endline @@ Yojson.Safe.pretty_to_string @@ Oiq_pricer.to_yojson priced)
-  | Error err ->
+  | Error (#Oiq_match_query.err as err) ->
+      Logs.err (fun m -> m "%a" Oiq_match_query.pp_err err);
+      exit 1
+  | Error (#Oiq.price_err as err) ->
       Logs.err (fun m -> m "%a" Oiq.pp_price_err err);
       exit 1
 
