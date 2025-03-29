@@ -70,6 +70,11 @@ module Cli = struct
     C.Cmd.v
       (C.Cmd.info "price" ~doc ~exits)
       C.Term.(const f $ usage $ input $ output_format $ match_query $ region)
+
+  let print_default_usage_cmd f =
+    let doc = "Print default usage file." in
+    let exits = C.Cmd.Exit.defaults in
+    C.Cmd.v (C.Cmd.info "print-default-usage" ~doc ~exits) C.Term.(const f $ const ())
 end
 
 let reporter ppf =
@@ -153,6 +158,16 @@ let price usage input output_format match_query regions =
       Logs.err (fun m -> m "%a" Oiq.pp_price_err err);
       exit 1
 
+let print_default_usage () =
+  let default = Oiq_usage.default () in
+  print_endline @@ Yojson.Safe.pretty_to_string @@ Oiq_usage.to_yojson default
+
 let () =
   let info = Cmdliner.Cmd.info ~version:Cli.version "oiq" in
-  exit @@ Cmdliner.Cmd.eval @@ Cmdliner.Cmd.group info [ Cli.match_cmd match_; Cli.price_cmd price ]
+  exit
+  @@ Cmdliner.Cmd.eval
+  @@ Cmdliner.Cmd.group
+       info
+       [
+         Cli.match_cmd match_; Cli.price_cmd price; Cli.print_default_usage_cmd print_default_usage;
+       ]
