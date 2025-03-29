@@ -370,3 +370,88 @@ let pretty_to_string t =
              | `Add -> "add"
              | `Remove -> "remove"))
          t.resources)
+
+let to_markdown_string t =
+  let fmt v = Printf.sprintf "%s$%.2f" (if v >= 0.0 then "" else "-") (CCFloat.abs v) in
+  (* Initial header *)
+  let lines = [ "### 💸 OpenInfraQuote Cost Estimate\n" ] in
+  (* Price difference section *)
+  let delta_min = t.price_diff.Oiq_range.min in
+  let delta_max = t.price_diff.Oiq_range.max in
+  let lines =
+    if delta_min = 0.0 && delta_max = 0.0 then lines
+    else
+      lines
+      @ [
+          Printf.sprintf
+            "Monthly cost is projected to **%s** by **%s - %s**\n"
+            (if delta_max < 0.0 then "decrease" else "increase")
+            (fmt (CCFloat.abs delta_min))
+            (fmt (CCFloat.abs delta_max));
+        ]
+  in
+  (* Summary table *)
+  let lines =
+    lines
+    @ [
+        "\n| Monthly Estimate | Amount             |";
+        "|------------------|--------------------|";
+        Printf.sprintf
+          "| After changes    | %s - %s |"
+          (fmt t.price.Oiq_range.min)
+          (fmt t.price.Oiq_range.max);
+        Printf.sprintf
+          "| Before changes   | %s - %s |\n"
+          (fmt t.prev_price.Oiq_range.min)
+          (fmt t.prev_price.Oiq_range.max);
+      ]
+  in
+  (* Group resources by change type *)
+  let adds, removes, existing =
+    CCList.fold_left
+      (fun (a, r, e) resource ->
+        match resource.Resource.change with
+        | `Add -> (resource :: a, r, e)
+        | `Remove -> (a, resource :: r, e)
+        | `Noop -> (a, r, resource :: e))
+      ([], [], [])
+      t.resources
+  in
+  (* Helper to render a section of resources *)
+  let render_section title resources =
+    if CCList.is_empty resources then ""
+    else
+      let header = Printf.sprintf "<details>\n<summary>%s</summary>\n\n" title in
+      let table =
+        "| Resource | Type | Before changes | After changes |\n\
+         |----------|------|----------------|----------------|\n"
+      in
+      let rows =
+        CCString.concat
+          "\n"
+          (CCList.map
+             (fun r ->
+               let name = r.Resource.name in
+               let typ = r.Resource.type_ in
+               let est_min = r.Resource.price.Oiq_range.min in
+               let est_max = r.Resource.price.Oiq_range.max in
+               Printf.sprintf
+                 "| %s | %s | %s - %s | %s - %s |"
+                 name
+                 typ
+                 (fmt t.prev_price.Oiq_range.min)
+                 (fmt t.prev_price.Oiq_range.max)
+                 (fmt est_min)
+                 (fmt est_max))
+             resources)
+      in
+      header ^ table ^ rows ^ "\n</details>\n"
+  in
+  CCString.concat
+    "\n"
+    (lines
+    @ [
+        render_section "🟢 Added resources" adds;
+        render_section "🔴 Removed resources" removes;
+        render_section "⚪ Existing resources" existing;
+      ])
