@@ -75,5 +75,19 @@
     "usage": {
       "time": 1000000
     }
+  },
+  {
+    "description": "Default AWS EBS standard IOPS",
+    "match_query": "type = aws_ebs_volume and values.type = standard and service_class = iops",
+    "usage": {
+      "operations": 400000000
+    }
+  },
+  {
+    "description": "AWS EBS Storage",
+    "match_query": "type = aws_ebs_volume and service_class = stroage",
+    "usage": {
+      "alias": "values.size"
+    }
   }
 ]
