@@ -455,3 +455,122 @@ let to_markdown_string t =
         render_section "🔴 Removed resources" removes;
         render_section "⚪ Existing resources" existing;
       ])
+
+let to_atlantis_comment_string t =
+  let fmt v = Printf.sprintf "$%.2f" (CCFloat.abs v) in
+  let fmt_with_sign v = Printf.sprintf "%s$%.2f" (if v >= 0.0 then "" else "-") (CCFloat.abs v) in
+
+  (* Initial box header with emojis *)
+  let lines =
+    [
+      "\n";
+      (* Add an empty line for spacing *)
+      "╔══════════════════════════════════════════════════════════╗\n";
+      "║        💸 OpenInfraQuote Monthly Cost Estimate           ║\n";
+      "╚══════════════════════════════════════════════════════════╝\n";
+    ]
+  in
+
+  (* Price difference section *)
+  let delta_min = t.price_diff.Oiq_range.min in
+  let delta_max = t.price_diff.Oiq_range.max in
+  let lines =
+    if delta_min = 0.0 && delta_max = 0.0 then lines @ [ "\n"; "No change in monthly cost\n" ]
+    else if delta_max < 0.0 then
+      lines
+      @ [
+          "\n";
+          Printf.sprintf
+            "Decrease: %s → %s/month\n"
+            (fmt (CCFloat.abs delta_min))
+            (fmt (CCFloat.abs delta_max));
+        ]
+    else
+      lines @ [ "\n"; Printf.sprintf "Increase: %s → %s/month\n" (fmt delta_min) (fmt delta_max) ]
+  in
+
+  (* Before/After summary *)
+  let lines =
+    lines
+    @ [
+        "\n";
+        Printf.sprintf
+          "Before: %s – %s\n"
+          (fmt_with_sign t.prev_price.Oiq_range.min)
+          (fmt_with_sign t.prev_price.Oiq_range.max);
+        Printf.sprintf
+          "After:  %s – %s\n"
+          (fmt_with_sign t.price.Oiq_range.min)
+          (fmt_with_sign t.price.Oiq_range.max);
+      ]
+  in
+
+  (* Group resources by change type *)
+  let adds, removes, existing =
+    CCList.fold_left
+      (fun (a, r, e) resource ->
+        match resource.Resource.change with
+        | `Add -> (resource :: a, r, e)
+        | `Remove -> (a, resource :: r, e)
+        | `Noop -> (a, r, resource :: e))
+      ([], [], [])
+      t.resources
+  in
+
+  (* Add resource counts *)
+  let lines =
+    lines
+    @ [
+        "\n";
+        Printf.sprintf "%-2s %-10s %d\n" "🟢" "Added:" (CCList.length adds);
+        Printf.sprintf "%-2s %-10s %d\n" "🔴" "Removed:" (CCList.length removes);
+        Printf.sprintf "%-2s %-10s %d\n" "⚪" "Existing:" (CCList.length existing);
+      ]
+  in
+
+  (* Helper to render a section of resources *)
+  let render_section title resources =
+    if CCList.is_empty resources then ""
+    else
+      let header = Printf.sprintf "\n%s:\n%s\n" title (String.make (String.length title) '-') in
+      let table_header =
+        Printf.sprintf "%-40s %-20s %12s %12s\n" "Resource" "Type" "Before" "After"
+      in
+      let table_divider =
+        Printf.sprintf
+          "%-40s %-20s %12s %12s\n"
+          (String.make 40 '-')
+          (String.make 20 '-')
+          (String.make 12 '-')
+          (String.make 12 '-')
+      in
+      let rows =
+        CCString.concat
+          ""
+          (CCList.map
+             (fun r ->
+               let name = r.Resource.name in
+               let typ = r.Resource.type_ in
+               let est_min = r.Resource.price.Oiq_range.min in
+               let est_max = r.Resource.price.Oiq_range.max in
+               let before_range =
+                 Printf.sprintf
+                   "%s–%s"
+                   (fmt t.prev_price.Oiq_range.min)
+                   (fmt t.prev_price.Oiq_range.max)
+               in
+               let after_range = Printf.sprintf "%s–%s" (fmt est_min) (fmt est_max) in
+               Printf.sprintf "%-40s %-20s %12s %12s\n" name typ before_range after_range)
+             resources)
+      in
+      header ^ table_header ^ table_divider ^ rows
+  in
+
+  CCString.concat
+    ""
+    (lines
+    @ [
+        render_section "Added resources" adds;
+        render_section "Removed resources" removes;
+        render_section "Existing resources" existing;
+      ])
