@@ -43,7 +43,12 @@ type t = {
 }
 [@@deriving to_yojson]
 
-(* If products have a provision amount, filter the products out based on if they are within the usage. *)
+let int_of_usage = function
+  | "Inf" -> CCInt.max_int
+  | v -> CCOption.get_exn_or ("int_of_usage: " ^ v) @@ CCInt.of_string v
+
+(* If products have a provision amount, filter the products out based on if they
+   are within the usage. *)
 let apply_provision_amount entry products =
   CCList.filter
     (fun product ->
@@ -53,14 +58,8 @@ let apply_provision_amount entry products =
           Oiq_match_set.find_by_key "end_provision_amount" ms )
       with
       | Some (_, start_provision_amount), Some (_, end_provision_amount) ->
-          let start_provision_amount =
-            CCOption.get_exn_or ("start_provision_amount: " ^ start_provision_amount)
-            @@ CCInt.of_string start_provision_amount
-          in
-          let end_provision_amount =
-            CCOption.get_exn_or ("end_provision_amount: " ^ end_provision_amount)
-            @@ CCInt.of_string end_provision_amount
-          in
+          let start_provision_amount = int_of_usage start_provision_amount in
+          let end_provision_amount = int_of_usage end_provision_amount in
           let provision_range =
             Oiq_range.make ~min:start_provision_amount ~max:end_provision_amount
           in
@@ -116,10 +115,6 @@ let apply_usage_amount entry products =
         | None, None -> false
         | Some _, None | None, Some _ -> assert false)
       products
-  in
-  let int_of_usage = function
-    | "Inf" -> CCInt.max_int
-    | v -> CCOption.get_exn_or ("int_of_usage: " ^ v) @@ CCInt.of_string v
   in
   if has_usage_amount then
     let products_grouped_by_usage_amount =
