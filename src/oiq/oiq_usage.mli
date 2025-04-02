@@ -11,13 +11,14 @@ module Usage : sig
   val time : t -> int Oiq_range.t
   val operations : t -> int Oiq_range.t
   val data : t -> int Oiq_range.t
+  val alias : t -> string option
 end
 
 module Entry : sig
   type accessor
   type t [@@deriving yojson]
 
-  val usage : t -> Usage.t
+  val usage : t -> Usage.t option
   val match_query : t -> Oiq_match_query.t
   val description : t -> string option
   val divisor : t -> int option

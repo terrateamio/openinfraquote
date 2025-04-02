@@ -10,12 +10,14 @@ module Usage = struct
     time : int Oiq_range.t; [@default default] [@of_yojson range_of_yojson]
     operations : int Oiq_range.t; [@default default] [@of_yojson range_of_yojson]
     data : int Oiq_range.t; [@default default] [@of_yojson range_of_yojson]
+    alias : string option;
   }
   [@@deriving yojson]
 
   let time t = t.time
   let operations t = t.operations
   let data t = t.data
+  let alias t = t.alias
 end
 
 module Entry = struct
@@ -24,7 +26,7 @@ module Entry = struct
       description : string option;
       divisor : int option; [@default None]
       match_query : string;
-      usage : Usage.t;
+      usage : Usage.t option;
     }
     [@@deriving yojson]
   end
@@ -38,7 +40,7 @@ module Entry = struct
     description : string option;
     divisor : int option;
     match_query : Oiq_match_query.t;
-    usage : Usage.t;
+    usage : Usage.t option;
   }
 
   let usage t = t.usage
@@ -47,24 +49,28 @@ module Entry = struct
   let divisor t = t.divisor
 
   let bound_to_usage_amount accessor { Oiq_range.min; max } t =
-    match accessor.get t.usage with
-    | { Oiq_range.max = usage_max; _ } when usage_max < min ->
-        (* The usage described in this entry does not overlap with the usage
+    CCOption.map
+      (fun usage ->
+        match accessor.get usage with
+        | { Oiq_range.max = usage_max; _ } when usage_max < min ->
+            (* The usage described in this entry does not overlap with the usage
            amount passed in. *)
-        None
-    | { Oiq_range.min = usage_min; max = usage_max } ->
-        let diff = max - min in
-        let consumption = usage_max - min in
-        Some
-          {
-            t with
-            usage =
-              accessor.set
-                (Oiq_range.make
-                   ~min:(CCInt.max 0 (CCInt.min usage_min max - min))
-                   ~max:(CCInt.min consumption diff))
-                t.usage;
-          }
+            None
+        | { Oiq_range.min = usage_min; max = usage_max } ->
+            let diff = max - min in
+            let consumption = usage_max - min in
+            Some
+              {
+                t with
+                usage =
+                  Some
+                    (accessor.set
+                       (Oiq_range.make
+                          ~min:(CCInt.max 0 (CCInt.min usage_min max - min))
+                          ~max:(CCInt.min consumption diff))
+                       usage);
+              })
+      t.usage
 
   let time =
     { get = (fun { Usage.time; _ } -> time); set = (fun time usage -> { usage with Usage.time }) }

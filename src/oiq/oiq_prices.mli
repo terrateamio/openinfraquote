@@ -3,6 +3,7 @@ module Price : sig
     | Per_time of float
     | Per_operation of float
     | Per_data of float
+    | Attr of string
 end
 
 module Product : sig
