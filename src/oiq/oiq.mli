@@ -9,6 +9,7 @@ type match_err =
 type price_err =
   [ `Invalid_match_file_err of string
   | Oiq_usage.of_channel_err
+  | Oiq_pricer.price_err
   ]
 [@@deriving show]
 

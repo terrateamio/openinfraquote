@@ -4,7 +4,7 @@ type pos = {
 }
 [@@deriving show]
 
-type err = [ `Error of pos option * string * string ] [@@deriving show]
+type err = [ `Match_query_parse_err of pos option * string * string ] [@@deriving show]
 
 type t = {
   q : Oiq_match_query_parser_value.t option;
@@ -54,7 +54,7 @@ let of_string s =
       (Oiq_match_query_parser.Incremental.start (fst @@ Sedlexing.lexing_positions lexbuf))
   with
   | Ok q -> Ok { q; s }
-  | Error (pos, err) -> Error (`Error (pos, s, CCString.trim err))
+  | Error (pos, err) -> Error (`Match_query_parse_err (pos, s, CCString.trim err))
 
 let rec eval' ms =
   let module V = Oiq_match_query_parser_value in

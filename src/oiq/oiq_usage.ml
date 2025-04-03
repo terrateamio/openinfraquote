@@ -49,7 +49,7 @@ module Entry = struct
   let divisor t = t.divisor
 
   let bound_to_usage_amount accessor { Oiq_range.min; max } t =
-    CCOption.map
+    CCOption.flat_map
       (fun usage ->
         match accessor.get usage with
         | { Oiq_range.max = usage_max; _ } when usage_max < min ->

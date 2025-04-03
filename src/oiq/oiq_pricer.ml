@@ -32,6 +32,10 @@ module Resource = struct
   [@@deriving to_yojson]
 end
 
+type price_err = [ `Error ] [@@deriving show]
+
+exception Price_err of price_err
+
 type t = {
   match_date : string;
   match_query : string;
@@ -64,11 +68,12 @@ let apply_provision_amount entry products =
             Oiq_range.make ~min:start_provision_amount ~max:end_provision_amount
           in
           let priced_by =
-            match Oiq_prices.Product.price product with
-            | Oiq_prices.Price.Per_time _ -> Oiq_usage.Usage.time @@ Oiq_usage.Entry.usage entry
-            | Oiq_prices.Price.Per_operation _ ->
-                Oiq_usage.Usage.operations @@ Oiq_usage.Entry.usage entry
-            | Oiq_prices.Price.Per_data _ -> Oiq_usage.Usage.data @@ Oiq_usage.Entry.usage entry
+            raise (Failure "nyi")
+            (* match Oiq_prices.Product.price product with *)
+            (* | Oiq_prices.Price.Per_time _ -> Oiq_usage.Usage.time @@ Oiq_usage.Entry.usage entry *)
+            (* | Oiq_prices.Price.Per_operation _ -> *)
+            (*     Oiq_usage.Usage.operations @@ Oiq_usage.Entry.usage entry *)
+            (* | Oiq_prices.Price.Per_data _ -> Oiq_usage.Usage.data @@ Oiq_usage.Entry.usage entry *)
           in
           CCOption.is_some @@ Oiq_range.overlap CCInt.compare provision_range priced_by
       | None, None -> true
@@ -135,10 +140,11 @@ let apply_usage_amount entry products =
           in
           let range = Oiq_range.make ~min:start_usage_amount ~max:end_usage_amount in
           let priced_by =
-            match Oiq_prices.Product.price product with
-            | Oiq_prices.Price.Per_time _ -> `By_time
-            | Oiq_prices.Price.Per_operation _ -> `By_operation
-            | Oiq_prices.Price.Per_data _ -> `By_data
+            raise (Failure "nyi")
+            (* match Oiq_prices.Product.price product with *)
+            (* | Oiq_prices.Price.Per_time _ -> `By_time *)
+            (* | Oiq_prices.Price.Per_operation _ -> `By_operation *)
+            (* | Oiq_prices.Price.Per_data _ -> `By_data *)
           in
           Usage_range_map.add_to_list (range, priced_by) product acc)
         Usage_range_map.empty
@@ -174,10 +180,11 @@ let price_products entry products =
          (fun product ->
            let price = Oiq_prices.Product.price product in
            let quote f =
-             match price with
-             | Oiq_prices.Price.Per_time price -> time f usage /. divisor *. price
-             | Oiq_prices.Price.Per_operation price -> operations f usage /. divisor *. price
-             | Oiq_prices.Price.Per_data price -> data f usage /. divisor *. price
+             raise (Failure "nyi")
+             (* match price with *)
+             (* | Oiq_prices.Price.Per_time price -> time f usage /. divisor *. price *)
+             (* | Oiq_prices.Price.Per_operation price -> operations f usage /. divisor *. price *)
+             (* | Oiq_prices.Price.Per_data price -> data f usage /. divisor *. price *)
            in
            let min { Oiq_range.min; _ } = min in
            let max { Oiq_range.max; _ } = max in
@@ -216,7 +223,7 @@ let filter_products match_query matches =
             (Oiq_match_file.Match.change match_))
         matches
 
-let price ?match_query ~usage match_file =
+let price' ?match_query ~usage match_file =
   let priced_resources =
     let module Entry_map = CCMap.Make (struct
       type t = Oiq_usage.Entry.t
@@ -317,6 +324,9 @@ let price ?match_query ~usage match_file =
     price_diff;
     resources = priced_resources;
   }
+
+let price ?match_query ~usage match_file =
+  try Ok (price' ?match_query ~usage match_file) with Price_err (#price_err as err) -> Error err
 
 let pretty_to_string t =
   let fmt_name address type_ name =
