@@ -495,11 +495,11 @@ let to_atlantis_comment_string t =
     @ [
         "\n";
         Printf.sprintf
-          "Before: %s – %s\n"
+          "Before: %s - %s\n"
           (fmt_with_sign t.prev_price.Oiq_range.min)
           (fmt_with_sign t.prev_price.Oiq_range.max);
         Printf.sprintf
-          "After:  %s – %s\n"
+          "After:  %s - %s\n"
           (fmt_with_sign t.price.Oiq_range.min)
           (fmt_with_sign t.price.Oiq_range.max);
       ]
@@ -549,17 +549,27 @@ let to_atlantis_comment_string t =
           ""
           (CCList.map
              (fun r ->
-               let name = r.Resource.name in
+               let name =
+                 if
+                   not
+                     (CCString.equal r.Resource.address (r.Resource.type_ ^ "." ^ r.Resource.name))
+                 then
+                   CCString.concat "." @@ CCList.tl @@ CCString.split_on_char '.' r.Resource.address
+                 else r.Resource.name
+               in
                let typ = r.Resource.type_ in
                let est_min = r.Resource.price.Oiq_range.min in
                let est_max = r.Resource.price.Oiq_range.max in
+               (* Use spaces around hyphens and preserve signs for removed resources *)
                let before_range =
                  Printf.sprintf
-                   "%s–%s"
-                   (fmt t.prev_price.Oiq_range.min)
-                   (fmt t.prev_price.Oiq_range.max)
+                   "%s - %s"
+                   (fmt_with_sign t.prev_price.Oiq_range.min)
+                   (fmt_with_sign t.prev_price.Oiq_range.max)
                in
-               let after_range = Printf.sprintf "%s–%s" (fmt est_min) (fmt est_max) in
+               let after_range =
+                 Printf.sprintf "%s - %s" (fmt_with_sign est_min) (fmt_with_sign est_max)
+               in
                Printf.sprintf "%-40s %-20s %12s %12s\n" name typ before_range after_range)
              resources)
       in
