@@ -1,3 +1,5 @@
+ARG VERSION="dev"
+
 FROM debian:stable-20250317 AS builder
 
 RUN apt-get update && \
@@ -24,6 +26,7 @@ RUN opam init --disable-sandboxing -a -y && \
         uri \
         yojson && \
     pds && \
+    echo "${VERSION}" > version && \
     make release
 
 FROM gcr.io/distroless/base-debian12
