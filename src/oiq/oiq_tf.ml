@@ -82,7 +82,7 @@ end
 let rec load_resources json =
   let module P = struct
     type t = {
-      resources : Yojson.Safe.t list;
+      resources : Yojson.Safe.t list; [@default []]
       child_modules : Yojson.Safe.t list; [@default []]
     }
     [@@deriving of_yojson { strict = false }]
