@@ -68,12 +68,13 @@ let apply_provision_amount entry products =
             Oiq_range.make ~min:start_provision_amount ~max:end_provision_amount
           in
           let priced_by =
-            raise (Failure "nyi")
-            (* match Oiq_prices.Product.price product with *)
-            (* | Oiq_prices.Price.Per_time _ -> Oiq_usage.Usage.time @@ Oiq_usage.Entry.usage entry *)
-            (* | Oiq_prices.Price.Per_operation _ -> *)
-            (*     Oiq_usage.Usage.operations @@ Oiq_usage.Entry.usage entry *)
-            (* | Oiq_prices.Price.Per_data _ -> Oiq_usage.Usage.data @@ Oiq_usage.Entry.usage entry *)
+            match (Oiq_prices.Product.price product, Oiq_usage.Entry.usage entry) with
+            | Oiq_prices.Price.Per_time _, Some usage -> Oiq_usage.Usage.time usage
+            | Oiq_prices.Price.Per_operation _, Some usage -> Oiq_usage.Usage.operations usage
+            | Oiq_prices.Price.Per_data _, Some usage -> Oiq_usage.Usage.data usage
+            | Oiq_prices.Price.Attr attr, None -> raise (Failure "nyi")
+            | _, Some _ -> raise (Failure "nyi")
+            | _, None -> raise (Failure "nyi")
           in
           CCOption.is_some @@ Oiq_range.overlap CCInt.compare provision_range priced_by
       | None, None -> true
