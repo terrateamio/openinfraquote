@@ -85,9 +85,6 @@
   },
   {
     "description": "AWS EBS Storage",
-    "match_query": "type = aws_ebs_volume and service_class = stroage",
-    "usage": {
-      "alias": "values.size"
-    }
+    "match_query": "type = aws_ebs_volume and service_class = storage"
   }
 ]

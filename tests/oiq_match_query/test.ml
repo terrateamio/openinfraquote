@@ -142,46 +142,61 @@ let test_simple_paren_expr_match () =
 let test_unmatching_paren_error () =
   print_endline "test_unmatching_paren_error";
   let err = get_err @@ Oiq_match_query.of_string "(" in
-  assert (err = `Error (Some { Oiq_match_query.lnum = 1; offset = 0 }, "(", "MISSING_RPAREN"))
+  assert (
+    err
+    = `Match_query_parse_err (Some { Oiq_match_query.lnum = 1; offset = 0 }, "(", "MISSING_RPAREN"))
 
 let test_missing_not_expr_error () =
   print_endline "test_missing_not_expr_error";
   let err = get_err @@ Oiq_match_query.of_string "not" in
-  assert (err = `Error (Some { Oiq_match_query.lnum = 1; offset = 0 }, "not", "MISSING_NOT_EXPR"))
+  assert (
+    err
+    = `Match_query_parse_err
+        (Some { Oiq_match_query.lnum = 1; offset = 0 }, "not", "MISSING_NOT_EXPR"))
 
 let test_missing_rhs_binary_expr_and_error () =
   print_endline "test_missing_rh_of_binary_expr_and_error";
   let err = get_err @@ Oiq_match_query.of_string "foo and" in
-  assert (err = `Error (Some { Oiq_match_query.lnum = 1; offset = 0 }, "foo and", "MISSING_RHS_AND"))
+  assert (
+    err
+    = `Match_query_parse_err
+        (Some { Oiq_match_query.lnum = 1; offset = 0 }, "foo and", "MISSING_RHS_AND"))
 
 let test_missing_rhs_binary_expr_or_error () =
   print_endline "test_missing_rh_of_binary_expr_or_error";
   let err = get_err @@ Oiq_match_query.of_string "foo or" in
-  assert (err = `Error (Some { Oiq_match_query.lnum = 1; offset = 0 }, "foo or", "MISSING_RHS_OR"))
+  assert (
+    err
+    = `Match_query_parse_err
+        (Some { Oiq_match_query.lnum = 1; offset = 0 }, "foo or", "MISSING_RHS_OR"))
 
 let test_missing_not_sure_error () =
   print_endline "test_missing_not_sure_error";
   let err = get_err @@ Oiq_match_query.of_string "(foo" in
   assert (
-    err = `Error (Some { Oiq_match_query.lnum = 1; offset = 0 }, "(foo", "MISSING_EXPR_OR_RPAREN"))
+    err
+    = `Match_query_parse_err
+        (Some { Oiq_match_query.lnum = 1; offset = 0 }, "(foo", "MISSING_EXPR_OR_RPAREN"))
 
 let test_missing_rhs_binary_expr_equals_error () =
   print_endline "test_missing_rhs_binary_expr_equals_error";
   let err = get_err @@ Oiq_match_query.of_string "foo=" in
   assert (
-    err = `Error (Some { Oiq_match_query.lnum = 1; offset = 0 }, "foo=", "MISSING_EXPR_RHS_EQUALS"))
+    err
+    = `Match_query_parse_err
+        (Some { Oiq_match_query.lnum = 1; offset = 0 }, "foo=", "MISSING_EXPR_RHS_EQUALS"))
 
 let test_unexpected_rparen_error () =
   print_endline "test_unexpected_rparen_error";
   let err = get_err @@ Oiq_match_query.of_string ")" in
-  assert (err = `Error (None, ")", "UNEXPECTED_RPAREN"))
+  assert (err = `Match_query_parse_err (None, ")", "UNEXPECTED_RPAREN"))
 
 let test_expected_op_found_string_error () =
   print_endline "test_expected_op_found_string_error";
   let err = get_err @@ Oiq_match_query.of_string "foo and bar baz" in
   assert (
     err
-    = `Error
+    = `Match_query_parse_err
         ( Some { Oiq_match_query.lnum = 1; offset = 0 },
           "foo and bar baz",
           "EXPECTED_OP_FOUND_STRING" ))
@@ -191,7 +206,8 @@ let test_expected_op_found_string_error_2 () =
   let err = get_err @@ Oiq_match_query.of_string "foo bar" in
   assert (
     err
-    = `Error (Some { Oiq_match_query.lnum = 1; offset = 0 }, "foo bar", "EXPECTED_OP_FOUND_STRING"))
+    = `Match_query_parse_err
+        (Some { Oiq_match_query.lnum = 1; offset = 0 }, "foo bar", "EXPECTED_OP_FOUND_STRING"))
 
 let () =
   test_empty_query ();

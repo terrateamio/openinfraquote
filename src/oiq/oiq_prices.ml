@@ -1,7 +1,7 @@
 module Price = struct
   module P = struct
     type t = {
-      price : float option;
+      price : float;
       type_ : string; [@key "type"]
     }
     [@@deriving yojson]
@@ -11,26 +11,25 @@ module Price = struct
     | Per_time of float
     | Per_operation of float
     | Per_data of float
-    | Attr of string
-  [@@deriving eq]
+    | Attr of (string * float)
+  [@@deriving eq, show]
 
   let to_yojson = function
-    | Per_time price -> P.to_yojson { P.price = Some price; type_ = "t" }
-    | Per_operation price -> P.to_yojson { P.price = Some price; type_ = "o" }
-    | Per_data price -> P.to_yojson { P.price = Some price; type_ = "d" }
-    | Attr attr -> P.to_yojson { P.price = None; type_ = "a=" ^ attr }
+    | Per_time price -> P.to_yojson { P.price; type_ = "t" }
+    | Per_operation price -> P.to_yojson { P.price; type_ = "o" }
+    | Per_data price -> P.to_yojson { P.price; type_ = "d" }
+    | Attr (attr, price) -> P.to_yojson { P.price; type_ = "a=" ^ attr }
 
   let of_yojson json =
     let open CCResult.Infix in
     [%of_yojson: P.t] json
     >>= function
-    | { P.price = Some price; type_ = "t" } -> Ok (Per_time price)
-    | { P.price = Some price; type_ = "o" } -> Ok (Per_operation price)
-    | { P.price = Some price; type_ = "d" } -> Ok (Per_data price)
-    | { P.price = None; type_ } -> (
-        match CCString.Split.left ~by:"=" type_ with
-        | Some ("a", attr) -> Ok (Attr attr)
-        | Some _ | None -> Error ("Unknown price: " ^ Yojson.Safe.pretty_to_string json))
+    | { P.price; type_ = "t" } -> Ok (Per_time price)
+    | { P.price; type_ = "o" } -> Ok (Per_operation price)
+    | { P.price; type_ = "d" } -> Ok (Per_data price)
+    | { P.price; type_ } when CCString.prefix ~pre:"a=" type_ ->
+        let attr = CCString.drop 2 type_ in
+        Ok (Attr (attr, price))
     | { P.type_; _ } -> Error ("Unknown type: " ^ type_)
 end
 
@@ -53,7 +52,7 @@ module Product = struct
     product_family : string;
     service : string;
   }
-  [@@deriving yojson, eq]
+  [@@deriving yojson, show, eq]
 
   let of_row = function
     | [ _service; _product_family; ""; _pricing_match_set; _price; _price_type; _ccy ] ->
@@ -68,6 +67,7 @@ module Product = struct
         | "t" -> Ok (Price.Per_time price)
         | "o" -> Ok (Price.Per_operation price)
         | "d" -> Ok (Price.Per_data price)
+        | attr when CCString.prefix ~pre:"a=" attr -> Ok (Price.Attr (CCString.drop 2 attr, price))
         | any -> Error (`Invalid_price_type_err any))
         >>= fun price_info ->
         CCResult.map_err

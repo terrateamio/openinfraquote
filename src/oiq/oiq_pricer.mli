@@ -1,4 +1,9 @@
-type price_err = [ `Error ] [@@deriving show]
+type price_err =
+  [ `Resource_missing_attr_err of
+    Oiq_match_set.t * Oiq_usage.Usage.t option Oiq_usage.Entry.t * Oiq_prices.Product.t
+  ]
+[@@deriving show]
+
 type t [@@deriving to_yojson]
 
 val price :

@@ -3,7 +3,8 @@ module Price : sig
     | Per_time of float
     | Per_operation of float
     | Per_data of float
-    | Attr of string
+    | Attr of (string * float)
+  [@@deriving show]
 end
 
 module Product : sig
@@ -17,7 +18,7 @@ module Product : sig
     ]
   [@@deriving show]
 
-  type t [@@deriving yojson]
+  type t [@@deriving yojson, show]
 
   val of_row : string list -> (t, [> of_row_err ]) result
   val to_match_set : t -> Oiq_match_set.t

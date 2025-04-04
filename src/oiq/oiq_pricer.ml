@@ -10,7 +10,7 @@ module Product = struct
     price : Price_range.t;
     product_max : Oiq_prices.Product.t;
     product_min : Oiq_prices.Product.t;
-    usage : Oiq_usage.Entry.t;
+    usage : Oiq_usage.Usage.t Oiq_usage.Entry.t;
   }
   [@@deriving to_yojson]
 end
@@ -32,7 +32,11 @@ module Resource = struct
   [@@deriving to_yojson]
 end
 
-type price_err = [ `Error ] [@@deriving show]
+type price_err =
+  [ `Resource_missing_attr_err of
+    Oiq_match_set.t * Oiq_usage.Usage.t option Oiq_usage.Entry.t * Oiq_prices.Product.t
+  ]
+[@@deriving show]
 
 exception Price_err of price_err
 
@@ -54,32 +58,32 @@ let int_of_usage = function
 (* If products have a provision amount, filter the products out based on if they
    are within the usage. *)
 let apply_provision_amount entry products =
-  CCList.filter
-    (fun product ->
-      let ms = Oiq_prices.Product.pricing_match_set product in
-      match
-        ( Oiq_match_set.find_by_key "start_provision_amount" ms,
-          Oiq_match_set.find_by_key "end_provision_amount" ms )
-      with
-      | Some (_, start_provision_amount), Some (_, end_provision_amount) ->
-          let start_provision_amount = int_of_usage start_provision_amount in
-          let end_provision_amount = int_of_usage end_provision_amount in
-          let provision_range =
-            Oiq_range.make ~min:start_provision_amount ~max:end_provision_amount
-          in
-          let priced_by =
-            match (Oiq_prices.Product.price product, Oiq_usage.Entry.usage entry) with
-            | Oiq_prices.Price.Per_time _, Some usage -> Oiq_usage.Usage.time usage
-            | Oiq_prices.Price.Per_operation _, Some usage -> Oiq_usage.Usage.operations usage
-            | Oiq_prices.Price.Per_data _, Some usage -> Oiq_usage.Usage.data usage
-            | Oiq_prices.Price.Attr attr, None -> raise (Failure "nyi")
-            | _, Some _ -> raise (Failure "nyi")
-            | _, None -> raise (Failure "nyi")
-          in
-          CCOption.is_some @@ Oiq_range.overlap CCInt.compare provision_range priced_by
-      | None, None -> true
-      | Some _, None | None, Some _ -> assert false)
-    products
+  ( entry,
+    CCList.filter
+      (fun product ->
+        let ms = Oiq_prices.Product.pricing_match_set product in
+        match
+          ( Oiq_match_set.find_by_key "start_provision_amount" ms,
+            Oiq_match_set.find_by_key "end_provision_amount" ms )
+        with
+        | Some (_, start_provision_amount), Some (_, end_provision_amount) ->
+            let start_provision_amount = int_of_usage start_provision_amount in
+            let end_provision_amount = int_of_usage end_provision_amount in
+            let provision_range =
+              Oiq_range.make ~min:start_provision_amount ~max:end_provision_amount
+            in
+            let usage = Oiq_usage.Entry.usage entry in
+            let priced_by =
+              match Oiq_prices.Product.price product with
+              | Oiq_prices.Price.Per_time _ -> Oiq_usage.Usage.time usage
+              | Oiq_prices.Price.Per_operation _ -> Oiq_usage.Usage.operations usage
+              | Oiq_prices.Price.Per_data _ -> Oiq_usage.Usage.data usage
+              | Oiq_prices.Price.Attr (_, _) -> Oiq_usage.Usage.data usage
+            in
+            CCOption.is_some @@ Oiq_range.overlap CCInt.compare provision_range priced_by
+        | None, None -> true
+        | Some _, None | None, Some _ -> assert false)
+      products )
 
 (* Given a usage entry and a list of products, if the products have start/end
    usage amounts, make separate products of each distinct usage amount of bound
@@ -141,11 +145,11 @@ let apply_usage_amount entry products =
           in
           let range = Oiq_range.make ~min:start_usage_amount ~max:end_usage_amount in
           let priced_by =
-            raise (Failure "nyi")
-            (* match Oiq_prices.Product.price product with *)
-            (* | Oiq_prices.Price.Per_time _ -> `By_time *)
-            (* | Oiq_prices.Price.Per_operation _ -> `By_operation *)
-            (* | Oiq_prices.Price.Per_data _ -> `By_data *)
+            match Oiq_prices.Product.price product with
+            | Oiq_prices.Price.Per_time _ -> `By_time
+            | Oiq_prices.Price.Per_operation _ -> `By_operation
+            | Oiq_prices.Price.Per_data _ -> `By_data
+            | Oiq_prices.Price.Attr _ -> `By_data
           in
           Usage_range_map.add_to_list (range, priced_by) product acc)
         Usage_range_map.empty
@@ -172,7 +176,7 @@ let time f = CCFun.(Oiq_usage.Usage.time %> f %> CCFloat.of_int)
 let operations f = CCFun.(Oiq_usage.Usage.operations %> f %> CCFloat.of_int)
 let data f = CCFun.(Oiq_usage.Usage.data %> f %> CCFloat.of_int)
 
-let price_products entry products =
+let price_products resource_ms entry products =
   let usage = Oiq_usage.Entry.usage entry in
   let divisor = CCFloat.of_int @@ CCOption.get_or ~default:1 @@ Oiq_usage.Entry.divisor entry in
   let priced_products =
@@ -181,11 +185,11 @@ let price_products entry products =
          (fun product ->
            let price = Oiq_prices.Product.price product in
            let quote f =
-             raise (Failure "nyi")
-             (* match price with *)
-             (* | Oiq_prices.Price.Per_time price -> time f usage /. divisor *. price *)
-             (* | Oiq_prices.Price.Per_operation price -> operations f usage /. divisor *. price *)
-             (* | Oiq_prices.Price.Per_data price -> data f usage /. divisor *. price *)
+             match price with
+             | Oiq_prices.Price.Per_time price -> time f usage /. divisor *. price
+             | Oiq_prices.Price.Per_operation price -> operations f usage /. divisor *. price
+             | Oiq_prices.Price.Per_data price -> data f usage /. divisor *. price
+             | Oiq_prices.Price.Attr (_, price) -> data f usage /. divisor *. price
            in
            let min { Oiq_range.min; _ } = min in
            let max { Oiq_range.max; _ } = max in
@@ -224,10 +228,56 @@ let filter_products match_query matches =
             (Oiq_match_file.Match.change match_))
         matches
 
+let synthesize_usage_from_attr resource_ms entry products =
+  let all_attr_based =
+    CCList.for_all
+      (fun product ->
+        match Oiq_prices.Product.price product with
+        | Oiq_prices.Price.Attr _ -> true
+        | _ -> false)
+      products
+  in
+  if all_attr_based then (
+    (* Assert that they are all priced by the same attributes *)
+    assert (
+      1
+      >= CCList.length
+           (CCList.uniq
+              ~eq:CCString.equal
+              (CCList.map
+                 (fun product ->
+                   match Oiq_prices.Product.price product with
+                   | Oiq_prices.Price.Attr (attr, _) -> attr
+                   | _ -> assert false)
+                 products)));
+    (* There must be no usage for this entry in this case *)
+    assert (CCOption.is_none @@ Oiq_usage.Entry.usage entry);
+    match products with
+    | [] -> (
+        match Oiq_usage.Entry.usage entry with
+        | Some usage -> (Oiq_usage.Entry.with_usage usage entry, products)
+        | None -> assert false)
+    | product :: _ -> (
+        match Oiq_prices.Product.price product with
+        | Oiq_prices.Price.Attr (attr, _) -> (
+            match Oiq_match_set.find_by_key attr resource_ms with
+            | Some (_, usage) ->
+                let usage = CCInt.of_string_exn usage in
+                let range = Oiq_range.make ~min:usage ~max:usage in
+                let usage = Oiq_usage.Usage.make range in
+                let entry = Oiq_usage.Entry.with_usage usage entry in
+                (entry, products)
+            | None -> raise (Price_err (`Resource_missing_attr_err (resource_ms, entry, product))))
+        | _ -> raise (Failure "nyi")))
+  else
+    match Oiq_usage.Entry.usage entry with
+    | Some usage -> (Oiq_usage.Entry.with_usage usage entry, products)
+    | None -> assert false
+
 let price' ?match_query ~usage match_file =
   let priced_resources =
     let module Entry_map = CCMap.Make (struct
-      type t = Oiq_usage.Entry.t
+      type t = Oiq_usage.Usage.t option Oiq_usage.Entry.t
 
       let compare e1 e2 =
         CCString.compare
@@ -236,6 +286,7 @@ let price' ?match_query ~usage match_file =
     end) in
     CCList.filter_map (fun match_ ->
         let resource = Oiq_match_file.Match.resource match_ in
+        let resource_ms = Oiq_tf.Resource.to_match_set resource in
         let products = Oiq_match_file.Match.products match_ in
         let resource_products =
           CCList.map
@@ -263,7 +314,7 @@ let price' ?match_query ~usage match_file =
               let priced =
                 CCList.map (fun (entry, products) ->
                     let { Oiq_range.min = product_min, min; max = product_max, max } =
-                      price_products entry products
+                      price_products resource_ms entry products
                     in
                     {
                       Product.price = { Oiq_range.min; max };
@@ -272,8 +323,9 @@ let price' ?match_query ~usage match_file =
                       usage = entry;
                     })
                 @@ CCList.filter CCFun.(snd %> CCList.is_empty %> not)
-                @@ apply_usage_amount entry
-                @@ apply_provision_amount entry products
+                @@ CCFun.uncurry apply_usage_amount
+                @@ CCFun.uncurry apply_provision_amount
+                @@ synthesize_usage_from_attr resource_ms entry products
               in
               priced @ acc)
             usage_entries
