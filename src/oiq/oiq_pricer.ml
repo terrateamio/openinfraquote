@@ -324,6 +324,22 @@ let price ?match_query ~usage match_file =
   }
 
 let pretty_to_string t =
+  let fmt_name address type_ name =
+    if not (CCString.equal address (type_ ^ "." ^ name)) then
+      CCString.concat "." @@ CCList.tl @@ CCString.split_on_char '.' address
+    else name
+  in
+  let max_name =
+    CCList.fold_left CCInt.max 0
+    @@ CCList.map
+         (fun { Resource.address; name; type_; _ } ->
+           CCString.length @@ fmt_name address type_ name)
+         t.resources
+  in
+  let max_type_ =
+    CCList.fold_left CCInt.max 0
+    @@ CCList.map (fun { Resource.type_; _ } -> CCString.length type_) t.resources
+  in
   Printf.sprintf
     "Match date: %s\n\
      Price date: %s\n\
@@ -335,7 +351,7 @@ let pretty_to_string t =
      Min Price Diff: %0.2f USD\n\
      Max Price Diff: %0.2f USD\n\
      Resources\n\
-     %50s\t%30s\t%20s\t%20s\t%10s\n\
+     %*s\t%*s\t%20s\t%20s\t%10s\n\
      %s"
     t.match_date
     t.price_date
@@ -346,7 +362,9 @@ let pretty_to_string t =
     t.price.Oiq_range.max
     t.price_diff.Oiq_range.min
     t.price_diff.Oiq_range.max
+    max_name
     "Name"
+    max_type_
     "Type"
     "Min Price (USD)"
     "Max Price (USD)"
@@ -354,14 +372,12 @@ let pretty_to_string t =
     (CCString.concat "\n"
     @@ CCList.map
          (fun { Resource.address; name; type_; price = { Oiq_range.min; max }; change; _ } ->
-           let name =
-             if not (CCString.equal address (type_ ^ "." ^ name)) then
-               CCString.concat "." @@ CCList.tl @@ CCString.split_on_char '.' address
-             else name
-           in
+           let name = fmt_name address type_ name in
            Printf.sprintf
-             "%50s\t%30s\t%20.2f\t%20.2f\t%10s"
+             "%*s\t%*s\t%20.2f\t%20.2f\t%10s"
+             max_name
              name
+             max_type_
              type_
              min
              max
