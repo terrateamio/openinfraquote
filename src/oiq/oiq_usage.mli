@@ -6,21 +6,26 @@
 *)
 
 module Usage : sig
-  type t [@@deriving yojson]
+  type t [@@deriving yojson, show]
 
   val time : t -> int Oiq_range.t
   val operations : t -> int Oiq_range.t
   val data : t -> int Oiq_range.t
+  val make : int Oiq_range.t -> t
 end
 
 module Entry : sig
   type accessor
-  type t [@@deriving yojson]
+  type 'a t [@@deriving yojson, show]
 
-  val usage : t -> Usage.t
-  val match_query : t -> Oiq_match_query.t
-  val description : t -> string option
-  val divisor : t -> int option
+  val make :
+    ?divisor:int -> description:string -> match_query:Oiq_match_query.t -> usage:'a -> unit -> 'a t
+
+  val usage : 'a t -> 'a
+  val with_usage : 'a -> 'b t -> 'a t
+  val match_query : 'a t -> Oiq_match_query.t
+  val description : 'a t -> string
+  val divisor : 'a t -> int option
 
   (** Given a usage amount (this is part of pricing information) and an entry, construct a new entry
       if the usage amount lies within the range expressed in the entry. The usage of the resulting
@@ -55,7 +60,7 @@ module Entry : sig
 
       If given a usage amount of (5, 10) and a usage range of (0, 4), None would be returned because
       there is no overlap. *)
-  val bound_to_usage_amount : accessor -> int Oiq_range.t -> t -> t option
+  val bound_to_usage_amount : accessor -> int Oiq_range.t -> Usage.t t -> Usage.t t option
 
   val time : accessor
   val operations : accessor
@@ -67,4 +72,4 @@ type t [@@deriving to_yojson]
 
 val default : unit -> t
 val of_channel : in_channel -> (t, [> of_channel_err ]) result
-val match_ : Oiq_match_set.t -> t -> Entry.t option
+val match_ : Oiq_match_set.t -> t -> Usage.t option Entry.t option

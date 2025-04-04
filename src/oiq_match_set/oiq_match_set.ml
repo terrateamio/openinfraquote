@@ -6,7 +6,13 @@ end)
 
 module Mm = CCMap.Make (CCString)
 
-type t = Ms.t [@@deriving eq, ord]
+let pp fmt v =
+  let module P = struct
+    type t = (string * string) list [@@deriving show]
+  end in
+  P.pp fmt @@ Ms.to_list v
+
+type t = (Ms.t[@printer pp]) [@@deriving eq, show, ord]
 type of_list_err = [ `Error ] [@@deriving show]
 type of_string_err = [ `Error ] [@@deriving show]
 

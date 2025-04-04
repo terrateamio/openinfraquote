@@ -26,6 +26,8 @@ jobs:
 
       - name: Build and push amd64 image
         run: |
+          set -x
+          echo "VERSION=${VERSION}"
           docker build --build-arg VERSION=${VERSION} -t $IMAGE_NAME:$VERSION-amd64 .
           docker push $IMAGE_NAME:$VERSION-amd64
         env:
@@ -49,6 +51,8 @@ jobs:
 
       - name: Build and push arm64 image
         run: |
+          set -x
+          echo "VERSION=${VERSION}"
           docker build --build-arg VERSION=${VERSION} -t $IMAGE_NAME:$VERSION-arm64 .
           docker push $IMAGE_NAME:$VERSION-arm64
         env:
