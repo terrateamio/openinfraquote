@@ -22,7 +22,7 @@
   },
   {
     "description": "Default AWS S3 Bucket storage (Per GB-Month)",
-    "match_query": "type = aws_s3_bucket and service_class = storage and purchase_option = on_demand",
+    "match_query": "type = aws_s3_bucket and service_class = storage and purchase_option = on_demand and storage_class = general_purpose",
     "usage": {
       "data": 900
     }
