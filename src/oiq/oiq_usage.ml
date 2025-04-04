@@ -22,7 +22,7 @@ end
 module Entry = struct
   module P = struct
     type 'a t = {
-      description : string option;
+      description : string;
       divisor : int option; [@default None]
       match_query : string;
       usage : 'a;
@@ -36,12 +36,15 @@ module Entry = struct
   }
 
   type 'a t = {
-    description : string option;
+    description : string;
     divisor : int option;
     match_query : Oiq_match_query.t;
     usage : 'a;
   }
   [@@deriving show]
+
+  let make ?divisor ~description ~match_query ~usage () =
+    { description; divisor; match_query; usage }
 
   let usage t = t.usage
   let with_usage usage t = { t with usage }
@@ -96,7 +99,7 @@ module Entry = struct
 end
 
 type entry = {
-  description : string option;
+  description : string;
   divisor : int option; [@default None]
   match_query : string;
   usage : Usage.t option; [@default None]

@@ -18,10 +18,13 @@ module Entry : sig
   type accessor
   type 'a t [@@deriving yojson, show]
 
+  val make :
+    ?divisor:int -> description:string -> match_query:Oiq_match_query.t -> usage:'a -> unit -> 'a t
+
   val usage : 'a t -> 'a
   val with_usage : 'a -> 'b t -> 'a t
   val match_query : 'a t -> Oiq_match_query.t
-  val description : 'a t -> string option
+  val description : 'a t -> string
   val divisor : 'a t -> int option
 
   (** Given a usage amount (this is part of pricing information) and an entry, construct a new entry
