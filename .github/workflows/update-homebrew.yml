@@ -1,0 +1,64 @@
+name: Update Homebrew Formula
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-formula:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.HOMEBREW_SSH_PRIVATE_KEY }}
+      
+      - name: Add GitHub to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+      
+      - name: Checkout tap repository
+        uses: actions/checkout@v3
+        with:
+          repository: terrateamio/homebrew-openinfraquote
+          ssh-key: ${{ secrets.HOMEBREW_SSH_PRIVATE_KEY }}
+      
+      - name: Configure Git
+        run: |
+          git config user.name "${{ secrets.HOMEBREW_TAP_COMMIT_OWNER }}"
+          git config user.email "${{ secrets.HOMEBREW_TAP_COMMIT_EMAIL }}"
+      
+      - name: Update formula
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          DOWNLOAD_URL="https://github.com/terrateamio/openinfraquote/releases/download/v$VERSION/oiq-darwin-amd64-v$VERSION.tar.gz"
+          curl -L -o release.tar.gz "$DOWNLOAD_URL"
+          SHA256=$(sha256sum release.tar.gz | awk '{print $1}')
+          
+          cat > Formula/openinfraquote.rb << EOF
+          class Openinfraquote < Formula
+            desc "Infrastructure cost estimation from Terraform plans and state files"
+            homepage "https://github.com/terrateamio/openinfraquote"
+            url "$DOWNLOAD_URL"
+            version "$VERSION"
+            sha256 "$SHA256"
+            license "MPL-2.0"
+            
+            depends_on :macos
+            
+            def install
+              bin.install "oiq"
+            end
+            
+            test do
+              system "#{bin}/oiq", "--version"
+            end
+          end
+          EOF
+      
+      - name: Commit and push changes
+        run: |
+          git add Formula/openinfraquote.rb
+          git commit -m "Update openinfraquote to ${GITHUB_REF#refs/tags/v}"
+          git push origin main
