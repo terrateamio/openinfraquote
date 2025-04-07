@@ -1,6 +1,6 @@
-ARG VERSION="dev"
-
 FROM debian:stable-20250317 AS builder
+ARG VERSION="dev"
+ENV VERSION=${VERSION}
 
 # Install system dependencies
 RUN apt-get update && \
