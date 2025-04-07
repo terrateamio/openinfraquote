@@ -381,12 +381,12 @@ let price' ?match_query ~usage match_file =
 let price ?match_query ~usage match_file =
   try Ok (price' ?match_query ~usage match_file) with Price_err (#price_err as err) -> Error err
 
+let fmt_name address type_ name =
+  if not (CCString.equal address (type_ ^ "." ^ name)) then
+    CCString.concat "." @@ CCList.tl @@ CCString.split_on_char '.' address
+  else name
+
 let pretty_to_string t =
-  let fmt_name address type_ name =
-    if not (CCString.equal address (type_ ^ "." ^ name)) then
-      CCString.concat "." @@ CCList.tl @@ CCString.split_on_char '.' address
-    else name
-  in
   let max_name =
     CCList.fold_left CCInt.max 0
     @@ CCList.map
@@ -505,11 +505,7 @@ let to_markdown_string t =
           "\n"
           (CCList.map
              (fun r ->
-               let name =
-                 if not (CCString.equal r.Resource.address (r.Resource.type_ ^ "." ^ r.Resource.name)) then
-                   CCString.concat "." @@ CCList.tl @@ CCString.split_on_char '.' r.Resource.address
-                 else r.Resource.name
-               in
+               let name = fmt_name r.Resource.address r.Resource.type_ r.Resource.name in
                let typ = r.Resource.type_ in
                let est_min = r.Resource.price.Oiq_range.min in
                let est_max = r.Resource.price.Oiq_range.max in
