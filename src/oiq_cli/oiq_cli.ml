@@ -11,9 +11,13 @@ module Cli = struct
 
   (* -p | --pricingsheet <dirpath> *)
   let pricesheet =
-    let docv = "PRICING_SHEET" in
+    let docv = "PRICE_SHEET" in
     let doc = "Path to the pricing CSV." in
-    C.Arg.(required & opt (some file) None & info [ "p"; "pricesheet" ] ~docv ~doc)
+    let env =
+      let doc = "Path to pricing CSV" in
+      C.Cmd.Env.info ~doc "OIQ_PRICE_SHEET"
+    in
+    C.Arg.(required & opt (some file) None & info [ "p"; "pricesheet" ] ~docv ~doc ~env)
 
   (* -o | --output-path <filepath> *)
   let output =
@@ -24,18 +28,14 @@ module Cli = struct
   let output_format =
     let docv = "FORMAT" in
     let doc = "Format of output (text, json, markdown, atlantis-comment)." in
+    let env =
+      let doc = "Specify output format" in
+      C.Cmd.Env.info ~doc "OIQ_OUTPUT_FORMAT"
+    in
     C.Arg.(
       value
-      & opt
-          (enum
-             [
-               ("text", `Text);
-               ("json", `Json);
-               ("markdown", `Markdown);
-               ("atlantis-comment", `Atlantis_comment);
-             ])
-          `Text
-      & info [ "f"; "format" ] ~docv ~doc)
+      & opt (enum [ ("text", `Text); ("json", `Json); ("markdown", `Markdown); ("atlantis-comment", `Atlantis_comment); ]) `Text
+      & info [ "f"; "format" ] ~docv ~doc ~env)
 
   let match_query =
     let docv = "QUERY" in
@@ -55,7 +55,11 @@ module Cli = struct
       "Specify a region to price against.  This is sugar for --mq 'not region or \
        region=<some_region>'"
     in
-    C.Arg.(value & opt_all string [] & info [ "region" ] ~docv ~doc)
+    let env =
+      let doc = "Specify region to price against" in
+      C.Cmd.Env.info ~doc "OIQ_REGION"
+    in
+    C.Arg.(value & opt_all string [] & info [ "region" ] ~docv ~doc ~env)
 
   let match_cmd f =
     let doc = "Match resource to pricing rows." in

@@ -11,20 +11,21 @@ module Usage = struct
     operations : int Oiq_range.t; [@default default] [@of_yojson range_of_yojson]
     data : int Oiq_range.t; [@default default] [@of_yojson range_of_yojson]
   }
-  [@@deriving yojson]
+  [@@deriving yojson, show]
 
   let time t = t.time
   let operations t = t.operations
   let data t = t.data
+  let make range = { time = default; operations = default; data = range }
 end
 
 module Entry = struct
   module P = struct
-    type t = {
-      description : string option;
+    type 'a t = {
+      description : string;
       divisor : int option; [@default None]
       match_query : string;
-      usage : Usage.t;
+      usage : 'a;
     }
     [@@deriving yojson]
   end
@@ -34,14 +35,19 @@ module Entry = struct
     set : int Oiq_range.t -> Usage.t -> Usage.t;
   }
 
-  type t = {
-    description : string option;
+  type 'a t = {
+    description : string;
     divisor : int option;
     match_query : Oiq_match_query.t;
-    usage : Usage.t;
+    usage : 'a;
   }
+  [@@deriving show]
+
+  let make ?divisor ~description ~match_query ~usage () =
+    { description; divisor; match_query; usage }
 
   let usage t = t.usage
+  let with_usage usage t = { t with usage }
   let match_query t = t.match_query
   let description t = t.description
   let divisor t = t.divisor
@@ -78,26 +84,42 @@ module Entry = struct
   let data =
     { get = (fun { Usage.data; _ } -> data); set = (fun data usage -> { usage with Usage.data }) }
 
-  let to_yojson { usage; match_query; description; divisor } =
+  let to_yojson usage_to_yojson { usage; match_query; description; divisor } =
     P.to_yojson
+      usage_to_yojson
       { P.description; usage; match_query = Oiq_match_query.to_string match_query; divisor }
 
-  let of_yojson json =
+  let of_yojson usage_of_yojson json =
     let open CCResult.Infix in
-    P.of_yojson json
+    P.of_yojson usage_of_yojson json
     >>= fun { P.description; match_query; usage; divisor } ->
     CCResult.map_err (fun (#Oiq_match_query.err as err) -> Oiq_match_query.show_err err)
     @@ Oiq_match_query.of_string match_query
     >>= fun match_query -> Ok { description; match_query; usage; divisor }
 end
 
+type entry = {
+  description : string;
+  divisor : int option; [@default None]
+  match_query : string;
+  usage : Usage.t option; [@default None]
+}
+[@@deriving of_yojson]
+
 let defaults =
-  CCResult.get_or_failwith
-  @@ [%of_yojson: Entry.t list]
+  CCList.map (fun { description; divisor; match_query; usage } ->
+      {
+        Entry.description;
+        divisor;
+        match_query = CCResult.get_exn @@ Oiq_match_query.of_string match_query;
+        usage;
+      })
+  @@ CCResult.get_or_failwith
+  @@ [%of_yojson: entry list]
   @@ Yojson.Safe.from_string [%blob "../../files/usage.json"]
 
 type of_channel_err = [ `Usage_file_err of string ] [@@deriving show]
-type t = { entries : Entry.t list }
+type t = { entries : Usage.t option Entry.t list }
 
 let default () = { entries = defaults }
 
@@ -111,9 +133,17 @@ let of_channel in_chan =
   >>= fun json ->
   CCResult.map_err
     (fun msg -> `Usage_file_err msg)
-    ([%of_yojson: Entry.t list] json >>= fun entries -> Ok { entries = entries @ defaults })
+    ([%of_yojson: entry list] json
+    >>= fun entries ->
+    CCResult.map_l
+      (fun { description; divisor; match_query; usage } ->
+        CCResult.map_err (fun (#Oiq_match_query.err as err) -> Oiq_match_query.show_err err)
+        @@ Oiq_match_query.of_string match_query
+        >>= fun match_query -> Ok { Entry.description; divisor; match_query; usage })
+      entries
+    >>= fun entries -> Ok { entries = entries @ defaults })
 
 let match_ ms t =
   CCList.find_opt (fun { Entry.match_query; _ } -> Oiq_match_query.eval ms match_query) t.entries
 
-let to_yojson { entries } = [%to_yojson: Entry.t list] entries
+let to_yojson { entries } = [%to_yojson: Usage.t option Entry.t list] entries
