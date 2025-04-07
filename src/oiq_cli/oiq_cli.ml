@@ -32,7 +32,7 @@ module Cli = struct
                ("text", `Text);
                ("json", `Json);
                ("markdown", `Markdown);
-               ("atlantis-comment", `AtlantisComment);
+               ("atlantis-comment", `Atlantis_comment);
              ])
           `Text
       & info [ "f"; "format" ] ~docv ~doc)
