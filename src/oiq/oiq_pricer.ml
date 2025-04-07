@@ -505,7 +505,11 @@ let to_markdown_string t =
           "\n"
           (CCList.map
              (fun r ->
-               let name = r.Resource.name in
+               let name =
+                 if not (CCString.equal r.Resource.address (r.Resource.type_ ^ "." ^ r.Resource.name)) then
+                   CCString.concat "." @@ CCList.tl @@ CCString.split_on_char '.' r.Resource.address
+                 else r.Resource.name
+               in
                let typ = r.Resource.type_ in
                let est_min = r.Resource.price.Oiq_range.min in
                let est_max = r.Resource.price.Oiq_range.max in
