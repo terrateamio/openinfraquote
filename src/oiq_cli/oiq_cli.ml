@@ -159,7 +159,7 @@ let price usage input output_format match_query regions =
       | `Text -> print_endline @@ Oiq_pricer.pretty_to_string priced
       | `Json -> print_endline @@ Yojson.Safe.pretty_to_string @@ Oiq_pricer.to_yojson priced
       | `Markdown -> print_endline @@ Oiq_pricer.to_markdown_string priced
-      | `AtlantisComment -> print_endline @@ Oiq_pricer.to_atlantis_comment_string priced)
+      | `Atlantis_comment -> print_endline @@ Oiq_pricer.to_atlantis_comment_string priced)
   | Error (#Oiq_match_query.err as err) ->
       Logs.err (fun m -> m "%a" Oiq_match_query.pp_err err);
       exit 1
