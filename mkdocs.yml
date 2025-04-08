@@ -2,7 +2,7 @@ site_name: OpenInfraQuote
 docs_dir: docs
 
 theme:
-  name: material
+  name: readthedocs
 
 nav:
   - Home: index.md
