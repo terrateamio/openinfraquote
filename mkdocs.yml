@@ -1,0 +1,19 @@
+site_name: OpenInfraQuote
+docs_dir: docs
+
+theme:
+  name: material
+
+nav:
+  - Home: index.md
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - footnotes
+  - meta
+  - toc:
+      permalink: true
+
+plugins:
+  - search
