@@ -14,3 +14,4 @@ val price :
 
 val pretty_to_string : t -> string
 val to_markdown_string : t -> string
+val to_atlantis_comment_string : t -> string
