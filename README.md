@@ -71,6 +71,69 @@ Automate your infrastructure cost estimates with OpenInfraQuote by adding the fo
 
 For more information, visit the [OpenInfraQuote GitHub Action Marketplace page](https://github.com/marketplace/actions/openinfraquote).
 
+## Atlantis Integration
+
+OpenInfraQuote can be integrated with Atlantis to add cost estimates to your workflow.
+
+<details>
+<summary>Add a custom workflow to your repo-config</summary>
+
+```yaml
+workflows:
+  default:
+    plan:
+      steps:
+        - init
+        - plan
+        - run: terraform show -json $PLANFILE > $SHOWFILE
+        - run: |
+            # Detect architecture
+            ARCH=$(uname -m)
+            if [ "$ARCH" = "x86_64" ]; then
+              OIQ_ARCH="amd64"
+            elif [ "$ARCH" = "aarch64" ]; then
+              OIQ_ARCH="arm64"
+            else
+              echo "Unsupported architecture: $ARCH"
+              exit 1
+            fi
+
+            # Download oiq binary if missing
+            if [ ! -f "/tmp/oiq" ]; then
+              LATEST_VERSION=$(curl -s https://api.github.com/repos/terrateamio/openinfraquote/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+
+              OIQ_TAR_URL="https://github.com/terrateamio/openinfraquote/releases/download/v${LATEST_VERSION}/oiq-linux-${OIQ_ARCH}-v${LATEST_VERSION}.tar.gz"
+              curl -sL "$OIQ_TAR_URL" -o /tmp/oiq.tar.gz
+              tar -xzf /tmp/oiq.tar.gz -C /tmp
+              chmod +x /tmp/oiq
+            fi
+
+            # Handle pricing data
+            PRICE_FILE="/tmp/prices.csv"
+            PRICE_GZ_FILE="/tmp/prices.csv.gz"
+            NEED_UPDATE=true
+
+            if [ -f "$PRICE_FILE" ]; then
+              LAST_MODIFIED=$(stat -c %Y "$PRICE_FILE")
+              NOW=$(date +%s)
+              AGE=$(( (NOW - LAST_MODIFIED) / 86400 ))
+              if [ "$AGE" -lt 7 ]; then
+                NEED_UPDATE=false
+              fi
+            fi
+
+            if $NEED_UPDATE; then
+              curl -s https://oiq.terrateam.io/prices.csv.gz -o "$PRICE_GZ_FILE"
+              gunzip -f "$PRICE_GZ_FILE"
+            fi
+        - run: /tmp/oiq match --pricesheet /tmp/prices.csv $SHOWFILE | /tmp/oiq price --format=atlantis-comment
+
+repos:
+  - id: /.*/
+    workflow: default
+```
+</details>
+
 ## Examples
 
 ### Estimate Costs from a Terraform Plan
