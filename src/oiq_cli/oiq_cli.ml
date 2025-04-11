@@ -27,14 +27,23 @@ module Cli = struct
 
   let output_format =
     let docv = "FORMAT" in
-    let doc = "Format of output (text, json, markdown, atlantis-comment)." in
+    let doc = "Format of output (summary, text, json, markdown, atlantis-comment)." in
     let env =
       let doc = "Specify output format" in
       C.Cmd.Env.info ~doc "OIQ_OUTPUT_FORMAT"
     in
     C.Arg.(
       value
-      & opt (enum [ ("text", `Text); ("json", `Json); ("markdown", `Markdown); ("atlantis-comment", `Atlantis_comment); ]) `Text
+      & opt
+          (enum
+             [
+               ("summary", `Summary);
+               ("text", `Text);
+               ("json", `Json);
+               ("markdown", `Markdown);
+               ("atlantis-comment", `Atlantis_comment);
+             ])
+          `Summary
       & info [ "f"; "format" ] ~docv ~doc ~env)
 
   let match_query =
@@ -160,6 +169,7 @@ let price usage input output_format match_query regions =
   with
   | Ok priced -> (
       match output_format with
+      | `Summary -> print_endline @@ Oiq_pricer.to_summary_string priced
       | `Text -> print_endline @@ Oiq_pricer.pretty_to_string priced
       | `Json -> print_endline @@ Yojson.Safe.pretty_to_string @@ Oiq_pricer.to_yojson priced
       | `Markdown -> print_endline @@ Oiq_pricer.to_markdown_string priced
