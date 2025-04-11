@@ -2,7 +2,7 @@
 
 # OpenInfraQuote
 
-![Comedian, Chelsea Lately, faces the camera and says, "I am a bold artistic voice", with a brief pause before saying, "with a lot of credit card debt"](docs/bold_artistic_voice.gif)
+![Comedian, Chelsea Lately, faces the camera and says, "I am a bold artistic voice", with a brief pause before saying, "with a lot of credit card debt"](files/bold_artistic_voice.gif)
 
 Infrastructure cost estimation from Terraform plans and state files
 
@@ -32,6 +32,20 @@ Currently supports AWS. GCP and Azure are on the way.
 
 ---
 
+## CI/CD Integrations
+
+OpenInfraQuote is built for automation. It integrates easily with:
+
+- GitHub Actions
+- GitLab CI/CD
+- Atlantis
+- OPA / Conftest
+- And more
+
+See the [docs](https://openinfraquote.readthedocs.io) for examples and setup instructions.
+
+---
+
 ## Getting Started
 
 You can install OpenInfraQuote by downloading the binary.
@@ -56,83 +70,8 @@ Download the latest release for your system:
    ```bash
    oiq --help
    ```
+
 ---
-## GitHub Action for OpenInfraQuote
-
-Automate your infrastructure cost estimates with OpenInfraQuote by adding the following step to your GitHub Actions workflow file:
-
-```yml
-- name: Run OpenInfraQuote
-  uses: terrateamio/openinfraquote-action@v1
-  with:
-    plan-path: tfplan.json
-    comment-on-pr: true
-```
-
-For more information, visit the [OpenInfraQuote GitHub Action Marketplace page](https://github.com/marketplace/actions/openinfraquote).
-
-## Atlantis Integration
-
-OpenInfraQuote can be integrated with Atlantis to add cost estimates to your workflow.
-
-<details>
-<summary>Add a custom workflow to your repo-config</summary>
-
-```yaml
-workflows:
-  default:
-    plan:
-      steps:
-        - init
-        - plan
-        - run: terraform show -json $PLANFILE > $SHOWFILE
-        - run: |
-            # Detect architecture
-            ARCH=$(uname -m)
-            if [ "$ARCH" = "x86_64" ]; then
-              OIQ_ARCH="amd64"
-            elif [ "$ARCH" = "aarch64" ]; then
-              OIQ_ARCH="arm64"
-            else
-              echo "Unsupported architecture: $ARCH"
-              exit 1
-            fi
-
-            # Download oiq binary if missing
-            if [ ! -f "/tmp/oiq" ]; then
-              LATEST_VERSION=$(curl -s https://api.github.com/repos/terrateamio/openinfraquote/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
-
-              OIQ_TAR_URL="https://github.com/terrateamio/openinfraquote/releases/download/v${LATEST_VERSION}/oiq-linux-${OIQ_ARCH}-v${LATEST_VERSION}.tar.gz"
-              curl -sL "$OIQ_TAR_URL" -o /tmp/oiq.tar.gz
-              tar -xzf /tmp/oiq.tar.gz -C /tmp
-              chmod +x /tmp/oiq
-            fi
-
-            # Handle pricing data
-            PRICE_FILE="/tmp/prices.csv"
-            PRICE_GZ_FILE="/tmp/prices.csv.gz"
-            NEED_UPDATE=true
-
-            if [ -f "$PRICE_FILE" ]; then
-              LAST_MODIFIED=$(stat -c %Y "$PRICE_FILE")
-              NOW=$(date +%s)
-              AGE=$(( (NOW - LAST_MODIFIED) / 86400 ))
-              if [ "$AGE" -lt 7 ]; then
-                NEED_UPDATE=false
-              fi
-            fi
-
-            if $NEED_UPDATE; then
-              curl -s https://oiq.terrateam.io/prices.csv.gz -o "$PRICE_GZ_FILE"
-              gunzip -f "$PRICE_GZ_FILE"
-            fi
-        - run: /tmp/oiq match --pricesheet /tmp/prices.csv $SHOWFILE | /tmp/oiq price --format=atlantis-comment
-
-repos:
-  - id: /.*/
-    workflow: default
-```
-</details>
 
 ## Examples
 
@@ -146,18 +85,24 @@ oiq match --pricesheet prices.csv tfplan.json | oiq price --region us-east-1
 
 Example output:
 ```
-Match date: 2025-03-25T20:26:25
-Price date: 2025-03-25T20:26:25
-Match query: region=us-east-1
+💸 OpenInfraQuote: Monthly Cost Estimate
 
-Min Price: 61.78 USD
-Max Price: 63.85 USD
-Min Price Diff: 61.78 USD
-Max Price Diff: 63.85 USD
+Monthly cost increase: $25.00
 
-Resources
-  Name      Type            Min Price (USD)  Max Price (USD)  Change
-  example   aws_s3_bucket   61.78            63.85             add
+Before: $63.85
+After:  $88.85
+
+🟢 Added:     1
+🔴 Removed:   0
+⚪ Existing:  1
+
+Added resources:
+  Resource       Type              Before   After
+  example-db     aws_db_instance   -        $25.00
+
+Existing resources:
+  Resource       Type              Before   After
+  example        aws_s3_bucket     $63.85   $63.85
 ```
 
 In JSON format:

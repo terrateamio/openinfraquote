@@ -1,11 +1,56 @@
 site_name: OpenInfraQuote
 docs_dir: docs
+edit_uri: edit/main/docs/
+repo_url: https://github.com/terrateamio/openinfraquote
+repo_name: GitHub
 
 theme:
-  name: readthedocs
+  name: material
+  logo: images/logo.svg
+  favicon: images/favicon.ico
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: blue
+      accent: light blue
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: blue
+      accent: light blue
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - content.action.edit
+    - content.tabs.link
 
 nav:
   - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Basic Usage: getting-started/basic-usage.md
+      - CLI Reference: getting-started/cli-reference.md
+      - Output Formats: getting-started/output-formats.md
+      - Supported Providers: getting-started/supported-providers.md
+  - Integrations:
+      - Atlantis: integrations/atlantis.md
+      - GitHub Actions: integrations/github-actions.md
+      - GitLab CI: integrations/gitlab-ci.md
+  - Advanced Usage:
+      - Environment Variables: advanced/environment-variables.md
+      - Usage File: advanced/usage-file.md
+      - Using with OPA: advanced/opa.md
+  - Development:
+      - Architecture Overview: development/architecture.md
+      - Build from Source: development/build-from-source.md
+      - Contributing: development/contributing.md
 
 markdown_extensions:
   - admonition
@@ -14,6 +59,18 @@ markdown_extensions:
   - meta
   - toc:
       permalink: true
+  - pymdownx.superfences
+  - pymdownx.tabbed
+  - pymdownx.highlight
+  - pymdownx.details
+  - pymdownx.inlinehilite
+  - pymdownx.emoji
+  - pymdownx.snippets
 
 plugins:
   - search
+  - mkdocstrings
+  - autorefs
+  - git-revision-date
+  - minify:
+      minify_html: true
