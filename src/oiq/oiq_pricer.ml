@@ -658,3 +658,132 @@ let to_atlantis_comment_string t =
         render_section "Removed resources" removes;
         render_section "Existing resources" existing;
       ])
+
+let to_summary_string t =
+  let fmt v = Printf.sprintf "$%.2f" (CCFloat.abs v) in
+  let fmt_with_sign v = Printf.sprintf "%s$%.2f" (if v >= 0.0 then "" else "-") (CCFloat.abs v) in
+
+  let lines = [ "💸 OpenInfraQuote: Monthly Cost Estimate\n\n" ] in
+
+  let delta_min = t.price_diff.Oiq_range.min in
+  let delta_max = t.price_diff.Oiq_range.max in
+  let lines =
+    if delta_min = 0.0 && delta_max = 0.0 then lines @ [ "Monthly cost unchanged 📊\n\n" ]
+    else if delta_max < 0.0 then
+      lines
+      @ [ Printf.sprintf "Monthly cost decreased by %s - %s 📉\n\n" (fmt delta_min) (fmt delta_max) ]
+    else
+      lines
+      @ [ Printf.sprintf "Monthly cost increased by %s - %s 📈\n\n" (fmt delta_min) (fmt delta_max) ]
+  in
+
+  let lines =
+    lines
+    @ [
+        Printf.sprintf
+          "Before: %s - %s\n"
+          (fmt_with_sign t.prev_price.Oiq_range.min)
+          (fmt_with_sign t.prev_price.Oiq_range.max);
+        Printf.sprintf
+          "After:  %s - %s\n\n"
+          (fmt_with_sign t.price.Oiq_range.min)
+          (fmt_with_sign t.price.Oiq_range.max);
+      ]
+  in
+
+  let adds, removes, existing =
+    CCList.fold_left
+      (fun (a, r, e) resource ->
+        match resource.Resource.change with
+        | `Add -> (resource :: a, r, e)
+        | `Remove -> (a, resource :: r, e)
+        | `Noop -> (a, r, resource :: e))
+      ([], [], [])
+      t.resources
+  in
+
+  let count_summary =
+    [
+      Printf.sprintf
+        "🟢 Added: %-4d 🔴 Removed: %-4d ⚪ Existing: %-4d\n\n"
+        (CCList.length adds)
+        (CCList.length removes)
+        (CCList.length existing);
+    ]
+  in
+
+  let name_col_width = 60 in
+  let cost_col_width = 14 in
+
+  let make_header_divider name_width cost_width =
+    let name_div = String.make name_width '-' in
+    let cost_div = String.make cost_width '-' in
+    Printf.sprintf " %s+%s \n" name_div cost_div
+  in
+
+  let render_resource_section title resources =
+    if CCList.is_empty resources then ""
+    else
+      let header = Printf.sprintf "%s:\n" title in
+      let table_header =
+        Printf.sprintf " %-*s   %-*s \n" name_col_width "Resource" cost_col_width "Monthly Cost"
+      in
+      let divider = make_header_divider name_col_width cost_col_width in
+
+      let format_resource r =
+        let address = r.Resource.address in
+        let cost_string =
+          match r.Resource.change with
+          | `Add -> fmt_with_sign r.Resource.price.Oiq_range.max
+          | `Remove -> "-"
+          | `Noop -> fmt_with_sign r.Resource.price.Oiq_range.max
+        in
+
+        if CCString.length address > name_col_width then (
+          let break_pos = ref (name_col_width - 1) in
+          while !break_pos > 0 && String.get address !break_pos <> '.' do
+            break_pos := !break_pos - 1
+          done;
+
+          if !break_pos > 0 then
+            let first_part = CCString.sub address 0 (!break_pos + 1) in
+            let second_part =
+              CCString.sub address (!break_pos + 1) (CCString.length address - !break_pos - 1)
+            in
+            Printf.sprintf
+              " %-*s   %-*s \n   %s\n"
+              name_col_width
+              first_part
+              cost_col_width
+              cost_string
+              second_part
+          else
+            Printf.sprintf
+              " %-*s   %-*s \n   %s\n"
+              name_col_width
+              (CCString.sub address 0 name_col_width)
+              cost_col_width
+              cost_string
+              (CCString.sub address name_col_width (CCString.length address - name_col_width)))
+        else Printf.sprintf " %-*s   %-*s \n" name_col_width address cost_col_width cost_string
+      in
+
+      let sorted_resources =
+        CCList.sort
+          (fun r1 r2 -> CCString.compare r1.Resource.address r2.Resource.address)
+          resources
+      in
+
+      let rows = CCString.concat "" (CCList.map format_resource sorted_resources) in
+      header ^ table_header ^ divider ^ rows ^ "\n"
+  in
+
+  CCString.concat
+    ""
+    (lines
+    @ count_summary
+    @ [
+        render_resource_section "Added resources" adds;
+        render_resource_section "Removed resources" removes;
+        render_resource_section "Existing resources" existing;
+      ])
