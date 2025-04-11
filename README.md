@@ -87,22 +87,22 @@ Example output:
 ```
 💸 OpenInfraQuote: Monthly Cost Estimate
 
-Monthly cost increase: $25.00
+Monthly cost increased by $25.00 📈
 
-Before: $63.85
-After:  $88.85
+Before: $63.85 - $63.85
+After:  $88.85 - $88.85
 
-🟢 Added:     1
-🔴 Removed:   0
-⚪ Existing:  1
+🟢 Added: 1   🔴 Removed: 0    ⚪ Existing: 1
 
 Added resources:
-  Resource       Type              Before   After
-  example-db     aws_db_instance   -        $25.00
+ Resource                                                       Monthly Cost
+ ------------------------------------------------------------+--------------
+ aws_db_instance.example-db                                     $25.00
 
 Existing resources:
-  Resource       Type              Before   After
-  example        aws_s3_bucket     $63.85   $63.85
+ Resource                                                       Monthly Cost
+ ------------------------------------------------------------+--------------
+ aws_s3_bucket.example-bucket                                    $63.85
 ```
 
 In JSON format:
