@@ -663,16 +663,6 @@ let to_summary_string t =
   let fmt v = Printf.sprintf "$%.2f" (CCFloat.abs v) in
   let fmt_with_sign v = Printf.sprintf "%s$%.2f" (if v >= 0.0 then "" else "-") (CCFloat.abs v) in
 
-  (* Try to detect terminal width, defaulting to 80 if not available *)
-  let terminal_width =
-    try
-      let ic = Unix.open_process_in "tput cols" in
-      let width = int_of_string (input_line ic) in
-      let _ = Unix.close_process_in ic in
-      if width < 40 then 80 else width
-    with _ -> 80
-  in
-
   let lines = [ "💸 OpenInfraQuote: Monthly Cost Estimate\n\n" ] in
 
   let delta_min = t.price_diff.Oiq_range.min in
@@ -680,8 +670,11 @@ let to_summary_string t =
   let lines =
     if delta_min = 0.0 && delta_max = 0.0 then lines @ [ "Monthly cost unchanged 📊\n\n" ]
     else if delta_max < 0.0 then
-      lines @ [ Printf.sprintf "Monthly cost decreased by %s 📉\n\n" (fmt delta_max) ]
-    else lines @ [ Printf.sprintf "Monthly cost increased by %s 📈\n\n" (fmt delta_max) ]
+      lines
+      @ [ Printf.sprintf "Monthly cost decreased by %s - %s 📉\n\n" (fmt delta_min) (fmt delta_max) ]
+    else
+      lines
+      @ [ Printf.sprintf "Monthly cost increased by %s - %s 📈\n\n" (fmt delta_min) (fmt delta_max) ]
   in
 
   let lines =
@@ -719,8 +712,8 @@ let to_summary_string t =
     ]
   in
 
+  let name_col_width = 60 in
   let cost_col_width = 14 in
-  let name_col_width = terminal_width - cost_col_width - 5 in
 
   let make_header_divider name_width cost_width =
     let name_div = String.make name_width '-' in
@@ -733,7 +726,7 @@ let to_summary_string t =
     else
       let header = Printf.sprintf "%s:\n" title in
       let table_header =
-        Printf.sprintf " %-*s   %*s \n" name_col_width "Resource" cost_col_width "Monthly Cost"
+        Printf.sprintf " %-*s   %-*s \n" name_col_width "Resource" cost_col_width "Monthly Cost"
       in
       let divider = make_header_divider name_col_width cost_col_width in
 
@@ -758,7 +751,7 @@ let to_summary_string t =
               CCString.sub address (!break_pos + 1) (CCString.length address - !break_pos - 1)
             in
             Printf.sprintf
-              " %-*s   %*s \n   %s\n"
+              " %-*s   %-*s \n   %s\n"
               name_col_width
               first_part
               cost_col_width
@@ -766,13 +759,13 @@ let to_summary_string t =
               second_part
           else
             Printf.sprintf
-              " %-*s   %*s \n   %s\n"
+              " %-*s   %-*s \n   %s\n"
               name_col_width
               (CCString.sub address 0 name_col_width)
               cost_col_width
               cost_string
               (CCString.sub address name_col_width (CCString.length address - name_col_width)))
-        else Printf.sprintf " %-*s   %*s \n" name_col_width address cost_col_width cost_string
+        else Printf.sprintf " %-*s   %-*s \n" name_col_width address cost_col_width cost_string
       in
 
       let sorted_resources =
