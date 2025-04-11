@@ -684,7 +684,6 @@ let to_summary_string t =
     else lines @ [ Printf.sprintf "Monthly cost increased by %s 📈\n\n" (fmt delta_max) ]
   in
 
-  (* ✅ FIXED: show full min-max price range *)
   let lines =
     lines
     @ [
