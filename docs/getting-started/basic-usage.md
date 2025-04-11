@@ -56,9 +56,9 @@ By default, OpenInfraQuote outputs results in the `text` format. You can also ch
 Example usage:
 
 ```bash
-oiq price tfplan.json --format json
-oiq price tfplan.json --format markdown
-oiq price tfplan.json --format summary
+oiq price --format json
+oiq price --format markdown
+oiq price --format summary
 ```
 
 ## Additional Options
@@ -70,7 +70,7 @@ OpenInfraQuote uses a [built-in](https://github.com/terrateamio/openinfraquote/b
 However, for more accurate estimates tailored to your workloads, you can provide a custom usage file:
 
 ```bash
-oiq price tfplan.json --usage usage.json
+oiq price --usage usage.json
 ```
 
 This allows you to specify resource-specific metrics such as request volume, storage size, or execution time.
@@ -79,7 +79,7 @@ This allows you to specify resource-specific metrics such as request volume, sto
 The `--region` flag helps apply pricing specific to a region. This is a shortcut for setting a match query:
 
 ```bash
-oiq price tfplan.json --region us-east-1
+oiq price --region us-east-1
 ```
 
 ### Match Query
@@ -87,7 +87,7 @@ oiq price tfplan.json --region us-east-1
 You can use `--mq` (match query) to apply more advanced selection logic for pricing:
 
 ```bash
-oiq price tfplan.json --mq '(type = aws_s3_bucket and region = us-east-1)'
+oiq price --mq '(type = aws_s3_bucket and region = us-east-1)'
 ```
 
 ### Writing Output Files
