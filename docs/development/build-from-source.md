@@ -50,7 +50,6 @@ cd openinfraquote
 ```bash
 eval "$(opam env)"
 pds
-echo "dev" > version
 make release
 ```
 
