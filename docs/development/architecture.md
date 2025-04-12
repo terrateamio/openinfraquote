@@ -17,11 +17,11 @@ Terraform Plan/State → Match → Price → Output
 
 ### Match Step (`oiq_match_file.ml`)
 
-Parses Terraform plan/state JSON and builds a set of normalized resource representations with metadata needed for pricing.
+Provides file-level presentation logic. The actual match logic is implemented in `oiq.ml`.
 
 ### Pricing Engine (`oiq_pricer.ml`)
 
-Evaluates the matched resources against a local pricing sheet (CSV) and computes cost estimates.
+Connects matched resources to pricing logic and computes cost estimates.
 
 ### Pricing Data (`oiq_prices.ml`)
 
@@ -33,7 +33,7 @@ Handles extraction of normalized resource representations from Terraform plan or
 
 ### Usage Model (`oiq_usage.ml`)
 
-Applies default or user-supplied `usage.json` values to usage-based resources, merging usage into each resource's context before pricing.
+Contains usage model representation and utility functionality.
 
 ### CLI Interface (`oiq_cli/oiq_cli.ml`)
 
