@@ -2,7 +2,7 @@
 
 **OpenInfraQuote** is an open source CLI tool that estimates the cost of your infrastructure using Terraform plans and state files, entirely offline and under your control.
 
-[Get Started →](/getting-started/installation/)
+[Get Started →](./getting-started/installation.md)
 
 ## Why OpenInfraQuote?
 

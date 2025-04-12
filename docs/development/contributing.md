@@ -29,7 +29,7 @@ There are many ways to contribute to OpenInfraQuote:
    ```
 
 3. **Set up your development environment**:
-   Follow the instructions in the [Build from Source](/development/build-from-source) guide.
+   Follow the instructions in the [Build from Source](./build-from-source.md) guide.
 
 4. **Create a branch**:
    ```bash
