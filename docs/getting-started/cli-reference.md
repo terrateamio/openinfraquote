@@ -58,6 +58,16 @@ oiq price --region us-east-1 --format summary
 
 ---
 
+### `print-default-usage`
+
+Prints the default `usage.json` file used for estimating usage-based pricing.
+
+```bash
+oiq print-default-usage
+```
+
+---
+
 ## Environment Variables
 
 | Flag               | Env Var             |
@@ -85,4 +95,7 @@ export OIQ_PRICE_SHEET=prices.csv
 export OIQ_OUTPUT_FORMAT=markdown
 
 oiq match tfplan.json | oiq price
+
+# Print the default usage file
+oiq print-default-usage > usage.json
 ```
