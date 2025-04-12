@@ -9,6 +9,7 @@ Infrastructure cost estimation from Terraform plans and state files
 [![Stars](https://img.shields.io/github/stars/terrateamio/openinfraquote)](https://github.com/terrateamio/openinfraquote/stargazers)
 [![Slack](https://img.shields.io/badge/slack-join%20chat-blue)](https://terrateam.io/slack)
 [![Latest Release](https://img.shields.io/github/v/release/terrateamio/openinfraquote?color=%239F50DA)](https://github.com/terrateamio/openinfraquote/releases)
+[![Docs](https://img.shields.io/badge/docs-read%20the%20docs-6F42C1)](https://openinfraquote.readthedocs.io)
 [![OCaml](https://img.shields.io/badge/OCaml-EC6813?logo=ocaml&logoColor=fff)](https://ocaml.org)
 [![License: MPL-2.0](https://img.shields.io/badge/License-MPL--2.0-blue.svg)](https://opensource.org/licenses/MPL-2.0)
 
@@ -32,17 +33,17 @@ Currently supports AWS. GCP and Azure are on the way.
 
 ---
 
-## CI/CD Integrations
+## Documentation
 
-OpenInfraQuote is built for automation. It integrates easily with:
+Full documentation is available at [openinfraquote.readthedocs.io](https://openinfraquote.readthedocs.io)
 
-- GitHub Actions
-- GitLab CI/CD
-- Atlantis
-- OPA / Conftest
-- And more
-
-See the [docs](https://openinfraquote.readthedocs.io) for examples and setup instructions.
+Includes:
+- Installation guides
+- CI/CD integrations
+- Cost diffing
+- Usage customization
+- Output formats
+- Policy enforcement with OPA
 
 ---
 
