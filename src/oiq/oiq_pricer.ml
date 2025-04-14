@@ -458,10 +458,10 @@ let to_markdown_string t =
       lines
       @ [
           Printf.sprintf
-            "Monthly cost is projected to **%s** by **%s - %s**\n"
+            "Monthly cost is projected to **%s** by **%s%s**\n"
             (if delta_max < 0.0 then "decrease" else "increase")
             (fmt (CCFloat.abs delta_min))
-            (fmt (CCFloat.abs delta_max));
+            (if Float.equal delta_min delta_max then "" else " - " ^ fmt (CCFloat.abs delta_max));
         ]
   in
   (* Summary table *)
@@ -471,13 +471,15 @@ let to_markdown_string t =
         "\n| Monthly Estimate | Amount             |";
         "|------------------|--------------------|";
         Printf.sprintf
-          "| After changes    | %s - %s |"
+          "| After changes    | %s%s |"
           (fmt t.price.Oiq_range.min)
-          (fmt t.price.Oiq_range.max);
+          (if Float.equal t.price.Oiq_range.min t.price.Oiq_range.max then ""
+           else " - " ^ fmt t.price.Oiq_range.max);
         Printf.sprintf
-          "| Before changes   | %s - %s |\n"
+          "| Before changes   | %s%s |\n"
           (fmt t.prev_price.Oiq_range.min)
-          (fmt t.prev_price.Oiq_range.max);
+          (if Float.equal t.prev_price.Oiq_range.min t.prev_price.Oiq_range.max then ""
+           else " - " ^ fmt t.prev_price.Oiq_range.max);
       ]
   in
   (* Group resources by change type *)
@@ -510,13 +512,14 @@ let to_markdown_string t =
                let est_min = r.Resource.price.Oiq_range.min in
                let est_max = r.Resource.price.Oiq_range.max in
                Printf.sprintf
-                 "| %s | %s | %s - %s | %s - %s |"
+                 "| %s | %s | %s%s | %s%s |"
                  name
                  typ
                  (fmt t.prev_price.Oiq_range.min)
-                 (fmt t.prev_price.Oiq_range.max)
+                 (if Float.equal t.prev_price.Oiq_range.min t.prev_price.Oiq_range.max then ""
+                  else " - " ^ fmt t.prev_price.Oiq_range.max)
                  (fmt est_min)
-                 (fmt est_max))
+                 (if Float.equal est_min est_max then "" else " - " ^ fmt est_max))
              resources)
       in
       header ^ table ^ rows ^ "\n</details>\n"
@@ -555,12 +558,19 @@ let to_atlantis_comment_string t =
       @ [
           "\n";
           Printf.sprintf
-            "Decrease: %s → %s/month\n"
+            "Decrease: %s%s/month\n"
             (fmt (CCFloat.abs delta_min))
-            (fmt (CCFloat.abs delta_max));
+            (if Float.equal delta_min delta_max then "" else " → " ^ fmt (CCFloat.abs delta_max));
         ]
     else
-      lines @ [ "\n"; Printf.sprintf "Increase: %s → %s/month\n" (fmt delta_min) (fmt delta_max) ]
+      lines
+      @ [
+          "\n";
+          Printf.sprintf
+            "Increase: %s%s/month\n"
+            (fmt delta_min)
+            (if Float.equal delta_min delta_max then "" else " → " ^ fmt delta_max);
+        ]
   in
 
   (* Before/After summary *)
@@ -569,13 +579,15 @@ let to_atlantis_comment_string t =
     @ [
         "\n";
         Printf.sprintf
-          "Before: %s - %s\n"
+          "Before: %s%s\n"
           (fmt_with_sign t.prev_price.Oiq_range.min)
-          (fmt_with_sign t.prev_price.Oiq_range.max);
+          (if Float.equal t.prev_price.Oiq_range.min t.prev_price.Oiq_range.max then ""
+           else " - " ^ fmt_with_sign t.prev_price.Oiq_range.max);
         Printf.sprintf
-          "After:  %s - %s\n"
+          "After:  %s%s\n"
           (fmt_with_sign t.price.Oiq_range.min)
-          (fmt_with_sign t.price.Oiq_range.max);
+          (if Float.equal t.price.Oiq_range.min t.price.Oiq_range.max then ""
+           else " - " ^ fmt_with_sign t.price.Oiq_range.max);
       ]
   in
 
@@ -634,15 +646,18 @@ let to_atlantis_comment_string t =
                let typ = r.Resource.type_ in
                let est_min = r.Resource.price.Oiq_range.min in
                let est_max = r.Resource.price.Oiq_range.max in
-               (* Use spaces around hyphens and preserve signs for removed resources *)
                let before_range =
-                 Printf.sprintf
-                   "%s - %s"
-                   (fmt_with_sign t.prev_price.Oiq_range.min)
-                   (fmt_with_sign t.prev_price.Oiq_range.max)
+                 if Float.equal t.prev_price.Oiq_range.min t.prev_price.Oiq_range.max then
+                   fmt_with_sign t.prev_price.Oiq_range.min
+                 else
+                   Printf.sprintf
+                     "%s - %s"
+                     (fmt_with_sign t.prev_price.Oiq_range.min)
+                     (fmt_with_sign t.prev_price.Oiq_range.max)
                in
                let after_range =
-                 Printf.sprintf "%s - %s" (fmt_with_sign est_min) (fmt_with_sign est_max)
+                 if Float.equal est_min est_max then fmt_with_sign est_min
+                 else Printf.sprintf "%s - %s" (fmt_with_sign est_min) (fmt_with_sign est_max)
                in
                Printf.sprintf "%-40s %-20s %12s %12s\n" name typ before_range after_range)
              resources)
@@ -671,23 +686,35 @@ let to_summary_string t =
     if delta_min = 0.0 && delta_max = 0.0 then lines @ [ "Monthly cost unchanged 📊\n\n" ]
     else if delta_max < 0.0 then
       lines
-      @ [ Printf.sprintf "Monthly cost decreased by %s - %s 📉\n\n" (fmt delta_min) (fmt delta_max) ]
+      @ [
+          Printf.sprintf
+            "Monthly cost decreased by %s%s 📉\n\n"
+            (fmt (CCFloat.abs delta_min))
+            (if Float.equal delta_min delta_max then "" else " - " ^ fmt (CCFloat.abs delta_max));
+        ]
     else
       lines
-      @ [ Printf.sprintf "Monthly cost increased by %s - %s 📈\n\n" (fmt delta_min) (fmt delta_max) ]
+      @ [
+          Printf.sprintf
+            "Monthly cost increased by %s%s 📈\n\n"
+            (fmt delta_min)
+            (if Float.equal delta_min delta_max then "" else " - " ^ fmt delta_max);
+        ]
   in
 
   let lines =
     lines
     @ [
         Printf.sprintf
-          "Before: %s - %s\n"
+          "Before: %s%s\n"
           (fmt_with_sign t.prev_price.Oiq_range.min)
-          (fmt_with_sign t.prev_price.Oiq_range.max);
+          (if Float.equal t.prev_price.Oiq_range.min t.prev_price.Oiq_range.max then ""
+           else " - " ^ fmt_with_sign t.prev_price.Oiq_range.max);
         Printf.sprintf
-          "After:  %s - %s\n\n"
+          "After:  %s%s\n\n"
           (fmt_with_sign t.price.Oiq_range.min)
-          (fmt_with_sign t.price.Oiq_range.max);
+          (if Float.equal t.price.Oiq_range.min t.price.Oiq_range.max then ""
+           else " - " ^ fmt_with_sign t.price.Oiq_range.max);
       ]
   in
 
@@ -734,9 +761,23 @@ let to_summary_string t =
         let address = r.Resource.address in
         let cost_string =
           match r.Resource.change with
-          | `Add -> fmt_with_sign r.Resource.price.Oiq_range.max
+          | `Add ->
+              if Float.equal r.Resource.price.Oiq_range.min r.Resource.price.Oiq_range.max then
+                fmt_with_sign r.Resource.price.Oiq_range.min
+              else
+                Printf.sprintf
+                  "%s - %s"
+                  (fmt_with_sign r.Resource.price.Oiq_range.min)
+                  (fmt_with_sign r.Resource.price.Oiq_range.max)
           | `Remove -> "-"
-          | `Noop -> fmt_with_sign r.Resource.price.Oiq_range.max
+          | `Noop ->
+              if Float.equal r.Resource.price.Oiq_range.min r.Resource.price.Oiq_range.max then
+                fmt_with_sign r.Resource.price.Oiq_range.min
+              else
+                Printf.sprintf
+                  "%s - %s"
+                  (fmt_with_sign r.Resource.price.Oiq_range.min)
+                  (fmt_with_sign r.Resource.price.Oiq_range.max)
         in
 
         if CCString.length address > name_col_width then (
