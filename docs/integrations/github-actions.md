@@ -3,7 +3,7 @@
 
 OpenInfraQuote can be easily integrated into your GitHub Actions workflow to provide cost estimates for every pull request. See [our official GitHub Action](https://github.com/terrateamio/openinfraquote-action) for details.
 
-## Example `.github/workflows/terrateam-plan.yml`
+## Example `.github/workflows/terraform-plan.yml`
 
 If you're setting up a new workflow, here's a minimal example:
 
