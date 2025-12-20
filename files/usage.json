@@ -121,5 +121,58 @@
     "usage": {
       "operations": 0
     }
+  },
+  {
+    "description": "Default AWS ACM Certificate (1 certificate issuance per resource)",
+    "match_query": "type = aws_acm_certificate and service_class = certificate",
+    "usage": {
+      "operations": 1
+    }
+  },
+  {
+    "description": "Default AWS ECS Fargate memory (730 hours per month, multiplied by task definition memory in GB and desired_count)",
+    "match_query": "type = aws_ecs_service and service_class = memory",
+    "usage": {
+      "time": 730
+    },
+    "ref_multiplier": {
+      "ref_attr": "task_definition",
+      "value_path": "values.memory",
+      "divisor": 1024
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_count",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "Default AWS ECS Fargate vCPU (730 hours per month, multiplied by task definition vCPU count and desired_count)",
+    "match_query": "type = aws_ecs_service and service_class = vcpu",
+    "usage": {
+      "time": 730
+    },
+    "ref_multiplier": {
+      "ref_attr": "task_definition",
+      "value_path": "values.cpu",
+      "divisor": 1024
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_count",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "Default AWS Grafana Workspace editor licenses (1 editor by default)",
+    "match_query": "type = aws_grafana_workspace and service_class = editor",
+    "usage": {
+      "operations": 1
+    }
+  },
+  {
+    "description": "Default AWS Grafana Workspace viewer licenses (usage-based, 0 by default)",
+    "match_query": "type = aws_grafana_workspace and service_class = viewer",
+    "usage": {
+      "operations": 0
+    }
   }
 ]
