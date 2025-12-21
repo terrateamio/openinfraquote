@@ -64,6 +64,10 @@ module Refs : sig
       the addresses of resources referenced by the task_definition attribute. *)
   val get_references : t -> string -> string -> string list option
 
+  (** Get all attribute names that have references for a resource.
+      Returns a list of (attribute, references) pairs. *)
+  val get_all_references : t -> string -> (string * string list) list
+
   (** Resolve a reference: given a resource address and an attribute name that
       references another resource, return the referenced resource.
       Returns the first matching resource if multiple are referenced. *)

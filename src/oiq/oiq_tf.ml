@@ -56,7 +56,15 @@ module Resource = struct
             acc @ flattened)
           []
           fields
-    | `List items -> List.map (fun item -> flatten ~prefix item) items |> List.concat
+    | `List items ->
+        List.mapi
+          (fun idx item ->
+            let new_prefix =
+              if prefix = "" then string_of_int idx else prefix ^ "." ^ string_of_int idx
+            in
+            flatten ~prefix:new_prefix item)
+          items
+        |> List.concat
     | `String s -> [ (prefix, s) ]
     | `Int i -> [ (prefix, string_of_int i) ]
     | `Float f -> [ (prefix, string_of_float f) ]
@@ -222,37 +230,64 @@ module Refs = struct
   let empty =
     { resources_by_address = StringMap.empty; references = StringMap.empty }
 
+  (** Extract references from a list of JSON strings, filtering to valid resource addresses. *)
+  let extract_refs (refs : Yojson.Safe.t list) : string list =
+    CCList.filter_map
+      (function
+        | `String s ->
+            (* Only keep references that look like "type.name" (2 parts)
+               Skip things like "type.name.attribute" (3+ parts) *)
+            let parts = CCString.split_on_char '.' s in
+            if CCList.length parts = 2 then Some s else None
+        | _ -> None)
+      refs
+
+  (** Recursively parse JSON to find references, building a path as we traverse.
+      Returns a list of (path, references) pairs. *)
+  let rec parse_expr_recursive (path : string) (json : Yojson.Safe.t) : (string * string list) list =
+    match json with
+    | `Assoc fields ->
+        (* First check if this object has a "references" key *)
+        (match CCList.assoc_opt ~eq:CCString.equal "references" fields with
+        | Some (`List refs) ->
+            let ref_addrs = extract_refs refs in
+            if CCList.is_empty ref_addrs then []
+            else [(path, ref_addrs)]
+        | _ ->
+            (* Recursively process other fields *)
+            CCList.concat_map
+              (fun (key, value) ->
+                if CCString.equal key "references" then []
+                else
+                  let new_path = if CCString.is_empty path then key else path ^ "." ^ key in
+                  parse_expr_recursive new_path value)
+              fields)
+    | `List items ->
+        (* Process list items with index in the path *)
+        CCList.concat
+          (CCList.mapi
+            (fun i item ->
+              let new_path = path ^ "." ^ string_of_int i in
+              parse_expr_recursive new_path item)
+            items)
+    | _ -> []
+
   (** Parse a single resource's expressions to extract references.
-      Returns a map of attribute name -> list of referenced addresses. *)
+      Returns a map of attribute name -> list of referenced addresses.
+      Handles nested expressions like launch_template[0].id. *)
   let parse_resource_expressions (json : Yojson.Safe.t) : string list StringMap.t =
     match json with
     | `Assoc fields ->
+        let all_refs =
+          CCList.concat_map
+            (fun (attr_name, expr_value) ->
+              parse_expr_recursive attr_name expr_value)
+            fields
+        in
         CCList.fold_left
-          (fun acc (attr_name, expr_value) ->
-            (* Look for "references" key in the expression value *)
-            match expr_value with
-            | `Assoc expr_fields -> (
-                match CCList.assoc_opt ~eq:CCString.equal "references" expr_fields with
-                | Some (`List refs) ->
-                    (* Extract string references, filter to resource addresses only
-                       (exclude things like "aws_ecs_task_definition.task1.arn") *)
-                    let ref_addrs =
-                      CCList.filter_map
-                        (function
-                          | `String s ->
-                              (* Only keep references that look like "type.name" (2 parts)
-                                 Skip things like "type.name.attribute" (3+ parts) *)
-                              let parts = CCString.split_on_char '.' s in
-                              if CCList.length parts = 2 then Some s else None
-                          | _ -> None)
-                        refs
-                    in
-                    if CCList.is_empty ref_addrs then acc
-                    else StringMap.add attr_name ref_addrs acc
-                | _ -> acc)
-            | _ -> acc)
+          (fun acc (path, refs) -> StringMap.add path refs acc)
           StringMap.empty
-          fields
+          all_refs
     | _ -> StringMap.empty
 
   (** Recursively load configuration resources from a module and its children. *)
@@ -360,6 +395,14 @@ module Refs = struct
     | Some attr_map -> StringMap.find_opt attribute attr_map
     | None -> None
 
+  (** Get all attribute names that have references for a resource.
+      Returns a list of (attribute, references) pairs. *)
+  let get_all_references (t : t) (resource_address : string) :
+      (string * string list) list =
+    match StringMap.find_opt resource_address t.references with
+    | Some attr_map -> StringMap.to_list attr_map
+    | None -> []
+
   (** Resolve a reference: given a resource and an attribute that references
       another resource, return the referenced resource.
       Returns the first matching resource if multiple are referenced. *)
@@ -370,25 +413,38 @@ module Refs = struct
     | _ -> None
 
   (** Look up a value from a referenced resource.
-      [ref_path] is a dot-separated path like "task_definition.values.memory".
-      The first component is the attribute name that contains the reference,
-      the remaining components are the path within the referenced resource's data.
+      [ref_path] is a dot-separated path like "task_definition.values.memory"
+      or "launch_template.0.id.values.instance_type" for nested expressions.
+
+      The function tries progressively longer prefixes of the path as the
+      attribute name that contains the reference, until it finds a match.
 
       Example: [lookup_ref_value refs "aws_ecs_service.svc1" "task_definition.values.memory"]
-      would follow the task_definition reference and return the memory value. *)
+      would follow the task_definition reference and return the memory value.
+
+      Example: [lookup_ref_value refs "aws_asg.asg1" "launch_template.0.id.values.instance_type"]
+      would try "launch_template", then "launch_template.0", then "launch_template.0.id"
+      until it finds a reference, then return the instance_type value. *)
   let lookup_ref_value (t : t) (resource_address : string) (ref_path : string) :
       string option =
-    match CCString.split_on_char '.' ref_path with
-    | [] -> None
-    | [ _ ] -> None (* Need at least "ref_attr.value_path" *)
-    | ref_attr :: value_path -> (
-        match resolve_ref t resource_address ref_attr with
-        | None -> None
-        | Some ref_resource ->
-            (* Look up the value path in the referenced resource's match set *)
-            let ms = Resource.to_match_set ref_resource in
-            let key = CCString.concat "." value_path in
-            CCOption.map snd @@ Oiq_match_set.find_by_key key ms)
+    let parts = CCString.split_on_char '.' ref_path in
+    if CCList.length parts < 2 then None
+    else
+      (* Try progressively longer prefixes as the ref_attr *)
+      let rec try_prefix prefix_len =
+        if prefix_len >= CCList.length parts then None
+        else
+          let ref_attr = CCString.concat "." (CCList.take prefix_len parts) in
+          let value_path = CCList.drop prefix_len parts in
+          match resolve_ref t resource_address ref_attr with
+          | Some ref_resource when not (CCList.is_empty value_path) ->
+              (* Found a reference, look up the value path *)
+              let ms = Resource.to_match_set ref_resource in
+              let key = CCString.concat "." value_path in
+              CCOption.map snd @@ Oiq_match_set.find_by_key key ms
+          | _ -> try_prefix (prefix_len + 1)
+      in
+      try_prefix 1
 
   (** Get all resources in the reference context. *)
   let all_resources (t : t) : Resource.t list =

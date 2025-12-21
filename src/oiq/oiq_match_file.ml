@@ -49,29 +49,13 @@ module Ref_info = struct
       (fun res ->
         let addr = Oiq_tf.Resource.address res in
         (* Get all attributes that have references for this resource *)
-        (* We need to check common reference attributes *)
-        let common_ref_attrs =
-          [
-            "task_definition";
-            "launch_template";
-            "source_snapshot_id";
-            "kms_key_id";
-            "subnet_id";
-            "vpc_id";
-            "security_group_ids";
-            "cluster";
-            "instance";
-            "volume_id";
-          ]
-        in
+        let all_refs = Oiq_tf.Refs.get_all_references refs addr in
         let entries =
           CCList.filter_map
-            (fun attr ->
-              match Oiq_tf.Refs.get_references refs addr attr with
-              | Some refs when not (CCList.is_empty refs) ->
-                  Some { address = addr; attribute = attr; references = refs }
-              | _ -> None)
-            common_ref_attrs
+            (fun (attr, ref_addrs) ->
+              if CCList.is_empty ref_addrs then None
+              else Some { address = addr; attribute = attr; references = ref_addrs })
+            all_refs
         in
         match entries with
         | [] -> None
