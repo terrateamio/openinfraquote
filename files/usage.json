@@ -1,7 +1,28 @@
 [
   {
-    "description": "Default AWS EC2 Instance hours",
+    "description": "Default AWS EC2 Instance hours - Linux",
     "match_query": "type = aws_instance and service_class = instance and purchase_option = on_demand and os = linux",
+    "usage": {
+      "time": 730
+    }
+  },
+  {
+    "description": "Default AWS EC2 Instance hours - Windows",
+    "match_query": "type = aws_instance and service_class = instance and purchase_option = on_demand and os = windows",
+    "usage": {
+      "time": 730
+    }
+  },
+  {
+    "description": "Default AWS EC2 Instance hours - RHEL",
+    "match_query": "type = aws_instance and service_class = instance and purchase_option = on_demand and os = rhel",
+    "usage": {
+      "time": 730
+    }
+  },
+  {
+    "description": "Default AWS EC2 Instance hours - SUSE",
+    "match_query": "type = aws_instance and service_class = instance and purchase_option = on_demand and os = suse",
     "usage": {
       "time": 730
     }
@@ -28,17 +49,54 @@
     }
   },
   {
-    "description": "Default AWS RDS storage (Per GB-Month)",
+    "description": "Default AWS RDS storage (Per GB-Month, uses allocated_storage from resource)",
     "match_query": "type = aws_db_instance and service_class = storage and purchase_option = on_demand",
     "usage": {
       "data": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.allocated_storage",
+      "divisor": 1
     }
   },
   {
-    "description": "Default AWS RDS IOPS (Per 1 million I/O requests)",
+    "description": "Default AWS RDS IOPS for magnetic storage (Per 1 million I/O requests)",
     "match_query": "type = aws_db_instance and service_class = iops and values.storage_type = standard",
     "usage": {
       "operations": 200000000
+    }
+  },
+  {
+    "description": "AWS RDS Provisioned IOPS for io1 storage (uses iops from resource)",
+    "match_query": "type = aws_db_instance and service_class = iops and values.storage_type = io1",
+    "usage": {
+      "operations": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.iops",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS RDS Provisioned IOPS for io2 storage (uses iops from resource)",
+    "match_query": "type = aws_db_instance and service_class = iops and values.storage_type = io2",
+    "usage": {
+      "operations": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.iops",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS RDS Provisioned IOPS for gp3 storage above baseline (uses iops from resource, default 0 for baseline)",
+    "match_query": "type = aws_db_instance and service_class = iops and values.storage_type = gp3",
+    "usage": {
+      "operations": 0
+    },
+    "value_multiplier": {
+      "value_path": "values.iops",
+      "divisor": 1
     }
   },
   {
@@ -120,6 +178,1296 @@
     "match_query": "type = aws_dynamodb_table and service_class = requests and request_type = stream",
     "usage": {
       "operations": 0
+    }
+  },
+  {
+    "description": "Default AWS ACM Certificate (1 certificate issuance per resource)",
+    "match_query": "type = aws_acm_certificate and service_class = certificate",
+    "usage": {
+      "operations": 1
+    }
+  },
+  {
+    "description": "Default AWS ECS Fargate memory (730 hours per month, multiplied by task definition memory in GB and desired_count)",
+    "match_query": "type = aws_ecs_service and service_class = memory",
+    "usage": {
+      "time": 730
+    },
+    "ref_multiplier": {
+      "ref_attr": "task_definition",
+      "value_path": "values.memory",
+      "divisor": 1024
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_count",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "Default AWS ECS Fargate vCPU (730 hours per month, multiplied by task definition vCPU count and desired_count)",
+    "match_query": "type = aws_ecs_service and service_class = vcpu",
+    "usage": {
+      "time": 730
+    },
+    "ref_multiplier": {
+      "ref_attr": "task_definition",
+      "value_path": "values.cpu",
+      "divisor": 1024
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_count",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "Default AWS Grafana Workspace editor licenses (1 editor by default)",
+    "match_query": "type = aws_grafana_workspace and service_class = editor",
+    "usage": {
+      "operations": 1
+    }
+  },
+  {
+    "description": "Default AWS Grafana Workspace viewer licenses (usage-based, 0 by default)",
+    "match_query": "type = aws_grafana_workspace and service_class = viewer",
+    "usage": {
+      "operations": 0
+    }
+  },
+  {
+    "description": "Default AWS ElastiCache Cluster instance hours (730 hours * num_cache_nodes, on-demand)",
+    "match_query": "type = aws_elasticache_cluster and service_class = instance and purchase_option = on_demand",
+    "usage": {
+      "time": 730
+    },
+    "value_multiplier": {
+      "value_path": "values.num_cache_nodes",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "Default AWS ElastiCache Cluster backup storage (usage-based)",
+    "match_query": "type = aws_elasticache_cluster and service_class = backup",
+    "usage": {
+      "data": 0
+    }
+  },
+  {
+    "description": "Default AWS ElastiCache Replication Group cluster mode instance hours (730 hours * calculated nodes, on-demand)",
+    "match_query": "type = aws_elasticache_replication_group and service_class = instance and purchase_option = on_demand and values.num_node_groups",
+    "usage": {
+      "time": 730
+    },
+    "formula_multiplier": {
+      "formula": "(values.num_node_groups * values.replicas_per_node_group) + values.num_node_groups"
+    }
+  },
+  {
+    "description": "Default AWS ElastiCache Replication Group non-cluster mode instance hours (730 hours * num_cache_clusters, on-demand)",
+    "match_query": "type = aws_elasticache_replication_group and service_class = instance and purchase_option = on_demand and values.num_cache_clusters",
+    "usage": {
+      "time": 730
+    },
+    "value_multiplier": {
+      "value_path": "values.num_cache_clusters",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "Default AWS ElastiCache Replication Group backup storage (usage-based)",
+    "match_query": "type = aws_elasticache_replication_group and service_class = backup",
+    "usage": {
+      "data": 0
+    }
+  },
+  {
+    "description": "AWS Global Accelerator data transfer (usage-based, 0 by default)",
+    "match_query": "type = aws_globalaccelerator_endpoint_group and service_class = data_transfer",
+    "usage": {
+      "data": 0
+    }
+  },
+  {
+    "description": "Default AWS EC2 Dedicated Host hours (730 hours per month)",
+    "match_query": "type = aws_ec2_host and service_class = host and purchase_option = on_demand",
+    "usage": {
+      "time": 730
+    }
+  },
+  {
+    "description": "AWS EC2 Instance EBS-optimized usage hours",
+    "match_query": "type = aws_instance and service_class = ebs_optimized and purchase_option = on_demand",
+    "usage": {
+      "time": 730
+    }
+  },
+  {
+    "description": "AWS EC2 Instance detailed monitoring (7 metrics by default)",
+    "match_query": "type = aws_instance and service_class = monitoring",
+    "usage": {
+      "operations": 7
+    }
+  },
+  {
+    "description": "AWS EC2 Instance CPU credits for t3 (vCPU-hours, usage-based - default 0)",
+    "match_query": "type = aws_instance and service_class = cpu_credits and instance_family = t3 and os = linux",
+    "usage": {
+      "time": 0
+    }
+  },
+  {
+    "description": "AWS EC2 Instance CPU credits for t3a (vCPU-hours, usage-based - default 0)",
+    "match_query": "type = aws_instance and service_class = cpu_credits and instance_family = t3a and os = linux",
+    "usage": {
+      "time": 0
+    }
+  },
+  {
+    "description": "AWS EC2 Instance CPU credits for t2 (vCPU-hours, usage-based - default 0)",
+    "match_query": "type = aws_instance and service_class = cpu_credits and instance_family = t2 and os = linux",
+    "usage": {
+      "time": 0
+    }
+  },
+  {
+    "description": "AWS EC2 Instance CPU credits for t4g (vCPU-hours, usage-based - default 0)",
+    "match_query": "type = aws_instance and service_class = cpu_credits and instance_family = t4g and os = linux",
+    "usage": {
+      "time": 0
+    }
+  },
+  {
+    "description": "AWS EC2 Instance root block device storage (uses volume_size from resource)",
+    "match_query": "type = aws_instance and service_class = root_block_device_storage",
+    "usage": {
+      "data": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.root_block_device.0.volume_size",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS EC2 Instance root block device IOPS for io1 (uses iops from resource)",
+    "match_query": "type = aws_instance and service_class = root_block_device_iops and values.root_block_device.0.volume_type = io1",
+    "usage": {
+      "operations": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.root_block_device.0.iops",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS EC2 Instance EBS block device 0 storage",
+    "match_query": "type = aws_instance and service_class = ebs_block_device_storage and ebs_index = 0",
+    "usage": {
+      "data": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.ebs_block_device.0.volume_size",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS EC2 Instance EBS block device 1 storage",
+    "match_query": "type = aws_instance and service_class = ebs_block_device_storage and ebs_index = 1",
+    "usage": {
+      "data": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.ebs_block_device.1.volume_size",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS EC2 Instance EBS block device 2 storage",
+    "match_query": "type = aws_instance and service_class = ebs_block_device_storage and ebs_index = 2",
+    "usage": {
+      "data": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.ebs_block_device.2.volume_size",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS EC2 Instance EBS block device 3 storage",
+    "match_query": "type = aws_instance and service_class = ebs_block_device_storage and ebs_index = 3",
+    "usage": {
+      "data": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.ebs_block_device.3.volume_size",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS EC2 Instance EBS block device 4 storage",
+    "match_query": "type = aws_instance and service_class = ebs_block_device_storage and ebs_index = 4",
+    "usage": {
+      "data": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.ebs_block_device.4.volume_size",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS EC2 Instance EBS block device 0 IOPS for io1",
+    "match_query": "type = aws_instance and service_class = ebs_block_device_iops and ebs_index = 0 and values.ebs_block_device.0.volume_type = io1",
+    "usage": {
+      "operations": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.ebs_block_device.0.iops",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS EC2 Instance EBS block device 1 IOPS for io1",
+    "match_query": "type = aws_instance and service_class = ebs_block_device_iops and ebs_index = 1 and values.ebs_block_device.1.volume_type = io1",
+    "usage": {
+      "operations": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.ebs_block_device.1.iops",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS EC2 Instance EBS block device 2 IOPS for io1",
+    "match_query": "type = aws_instance and service_class = ebs_block_device_iops and ebs_index = 2 and values.ebs_block_device.2.volume_type = io1",
+    "usage": {
+      "operations": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.ebs_block_device.2.iops",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS EC2 Instance EBS block device 3 IOPS for io1",
+    "match_query": "type = aws_instance and service_class = ebs_block_device_iops and ebs_index = 3 and values.ebs_block_device.3.volume_type = io1",
+    "usage": {
+      "operations": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.ebs_block_device.3.iops",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS EC2 Instance EBS block device 4 IOPS for io1",
+    "match_query": "type = aws_instance and service_class = ebs_block_device_iops and ebs_index = 4 and values.ebs_block_device.4.volume_type = io1",
+    "usage": {
+      "operations": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.ebs_block_device.4.iops",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Launch Template instance hours - Shared tenancy Linux (standalone templates show $0, priced via ASG)",
+    "match_query": "type = aws_launch_template and service_class = instance and purchase_option = on_demand and os = linux and tenancy = shared and (not values.placement.0.tenancy or values.placement.0.tenancy = default)",
+    "usage": {
+      "time": 0
+    }
+  },
+  {
+    "description": "AWS Launch Template instance hours - Shared tenancy Windows (standalone templates show $0, priced via ASG)",
+    "match_query": "type = aws_launch_template and service_class = instance and purchase_option = on_demand and os = windows and tenancy = shared and (not values.placement.0.tenancy or values.placement.0.tenancy = default)",
+    "usage": {
+      "time": 0
+    }
+  },
+  {
+    "description": "AWS Launch Template instance hours - Dedicated tenancy Linux (standalone templates show $0, priced via ASG)",
+    "match_query": "type = aws_launch_template and service_class = instance and purchase_option = on_demand and os = linux and tenancy = dedicated and values.placement.0.tenancy = dedicated",
+    "usage": {
+      "time": 0
+    }
+  },
+  {
+    "description": "AWS Launch Template instance hours - Dedicated tenancy Windows (standalone templates show $0, priced via ASG)",
+    "match_query": "type = aws_launch_template and service_class = instance and purchase_option = on_demand and os = windows and tenancy = dedicated and values.placement.0.tenancy = dedicated",
+    "usage": {
+      "time": 0
+    }
+  },
+  {
+    "description": "AWS Launch Template EBS-optimized usage hours (standalone templates show $0, priced via ASG)",
+    "match_query": "type = aws_launch_template and service_class = ebs_optimized and purchase_option = on_demand",
+    "usage": {
+      "time": 0
+    }
+  },
+  {
+    "description": "AWS Launch Template detailed monitoring (standalone templates show $0, priced via ASG)",
+    "match_query": "type = aws_launch_template and service_class = monitoring",
+    "usage": {
+      "operations": 0
+    }
+  },
+  {
+    "description": "AWS Launch Template CPU credits for t3 (vCPU-hours, usage-based - default 0)",
+    "match_query": "type = aws_launch_template and service_class = cpu_credits and instance_family = t3 and os = linux",
+    "usage": {
+      "time": 0
+    }
+  },
+  {
+    "description": "AWS Launch Template CPU credits for t3a (vCPU-hours, usage-based - default 0)",
+    "match_query": "type = aws_launch_template and service_class = cpu_credits and instance_family = t3a and os = linux",
+    "usage": {
+      "time": 0
+    }
+  },
+  {
+    "description": "AWS Launch Template CPU credits for t2 (vCPU-hours, usage-based - default 0)",
+    "match_query": "type = aws_launch_template and service_class = cpu_credits and instance_family = t2 and os = linux",
+    "usage": {
+      "time": 0
+    }
+  },
+  {
+    "description": "AWS Launch Template CPU credits for t4g (vCPU-hours, usage-based - default 0)",
+    "match_query": "type = aws_launch_template and service_class = cpu_credits and instance_family = t4g and os = linux",
+    "usage": {
+      "time": 0
+    }
+  },
+  {
+    "description": "AWS Launch Template block device 0 storage (standalone templates show $0, priced via ASG)",
+    "match_query": "type = aws_launch_template and service_class = block_device_storage and block_device_index = 0",
+    "usage": {
+      "data": 0
+    }
+  },
+  {
+    "description": "AWS Launch Template block device 1 storage (standalone templates show $0, priced via ASG)",
+    "match_query": "type = aws_launch_template and service_class = block_device_storage and block_device_index = 1",
+    "usage": {
+      "data": 0
+    }
+  },
+  {
+    "description": "AWS Launch Template block device 2 storage (standalone templates show $0, priced via ASG)",
+    "match_query": "type = aws_launch_template and service_class = block_device_storage and block_device_index = 2",
+    "usage": {
+      "data": 0
+    }
+  },
+  {
+    "description": "AWS Launch Template block device 3 storage (standalone templates show $0, priced via ASG)",
+    "match_query": "type = aws_launch_template and service_class = block_device_storage and block_device_index = 3",
+    "usage": {
+      "data": 0
+    }
+  },
+  {
+    "description": "AWS Launch Template block device 4 storage (standalone templates show $0, priced via ASG)",
+    "match_query": "type = aws_launch_template and service_class = block_device_storage and block_device_index = 4",
+    "usage": {
+      "data": 0
+    }
+  },
+  {
+    "description": "AWS Launch Template block device 0 IOPS for io1 (standalone templates show $0, priced via ASG)",
+    "match_query": "type = aws_launch_template and service_class = block_device_iops and block_device_index = 0 and values.block_device_mappings.0.ebs.0.volume_type = io1",
+    "usage": {
+      "operations": 0
+    }
+  },
+  {
+    "description": "AWS Launch Template block device 1 IOPS for io1 (standalone templates show $0, priced via ASG)",
+    "match_query": "type = aws_launch_template and service_class = block_device_iops and block_device_index = 1 and values.block_device_mappings.1.ebs.0.volume_type = io1",
+    "usage": {
+      "operations": 0
+    }
+  },
+  {
+    "description": "AWS Launch Template block device 2 IOPS for io1 (standalone templates show $0, priced via ASG)",
+    "match_query": "type = aws_launch_template and service_class = block_device_iops and block_device_index = 2 and values.block_device_mappings.2.ebs.0.volume_type = io1",
+    "usage": {
+      "operations": 0
+    }
+  },
+  {
+    "description": "AWS Launch Template block device 3 IOPS for io1 (standalone templates show $0, priced via ASG)",
+    "match_query": "type = aws_launch_template and service_class = block_device_iops and block_device_index = 3 and values.block_device_mappings.3.ebs.0.volume_type = io1",
+    "usage": {
+      "operations": 0
+    }
+  },
+  {
+    "description": "AWS Launch Template block device 4 IOPS for io1 (standalone templates show $0, priced via ASG)",
+    "match_query": "type = aws_launch_template and service_class = block_device_iops and block_device_index = 4 and values.block_device_mappings.4.ebs.0.volume_type = io1",
+    "usage": {
+      "operations": 0
+    }
+  },
+  {
+    "description": "AWS Launch Configuration instance hours - Shared tenancy Linux (standalone configs show $0, priced via ASG)",
+    "match_query": "type = aws_launch_configuration and service_class = instance and purchase_option = on_demand and os = linux and tenancy = shared and (not values.placement_tenancy or values.placement_tenancy = default)",
+    "usage": {
+      "time": 0
+    }
+  },
+  {
+    "description": "AWS Launch Configuration instance hours - Shared tenancy Windows (standalone configs show $0, priced via ASG)",
+    "match_query": "type = aws_launch_configuration and service_class = instance and purchase_option = on_demand and os = windows and tenancy = shared and (not values.placement_tenancy or values.placement_tenancy = default)",
+    "usage": {
+      "time": 0
+    }
+  },
+  {
+    "description": "AWS Launch Configuration instance hours - Dedicated tenancy Linux (standalone configs show $0, priced via ASG)",
+    "match_query": "type = aws_launch_configuration and service_class = instance and purchase_option = on_demand and os = linux and tenancy = dedicated and values.placement_tenancy = dedicated",
+    "usage": {
+      "time": 0
+    }
+  },
+  {
+    "description": "AWS Launch Configuration instance hours - Dedicated tenancy Windows (standalone configs show $0, priced via ASG)",
+    "match_query": "type = aws_launch_configuration and service_class = instance and purchase_option = on_demand and os = windows and tenancy = dedicated and values.placement_tenancy = dedicated",
+    "usage": {
+      "time": 0
+    }
+  },
+  {
+    "description": "AWS Launch Configuration EBS-optimized usage hours (standalone configs show $0, priced via ASG)",
+    "match_query": "type = aws_launch_configuration and service_class = ebs_optimized and purchase_option = on_demand",
+    "usage": {
+      "time": 0
+    }
+  },
+  {
+    "description": "AWS Launch Configuration detailed monitoring (standalone configs show $0, priced via ASG)",
+    "match_query": "type = aws_launch_configuration and service_class = monitoring",
+    "usage": {
+      "operations": 0
+    }
+  },
+  {
+    "description": "AWS Launch Configuration CPU credits for t3 (vCPU-hours, usage-based - default 0)",
+    "match_query": "type = aws_launch_configuration and service_class = cpu_credits and instance_family = t3 and os = linux",
+    "usage": {
+      "time": 0
+    }
+  },
+  {
+    "description": "AWS Launch Configuration CPU credits for t3a (vCPU-hours, usage-based - default 0)",
+    "match_query": "type = aws_launch_configuration and service_class = cpu_credits and instance_family = t3a and os = linux",
+    "usage": {
+      "time": 0
+    }
+  },
+  {
+    "description": "AWS Launch Configuration CPU credits for t2 (vCPU-hours, usage-based - default 0)",
+    "match_query": "type = aws_launch_configuration and service_class = cpu_credits and instance_family = t2 and os = linux",
+    "usage": {
+      "time": 0
+    }
+  },
+  {
+    "description": "AWS Launch Configuration CPU credits for t4g (vCPU-hours, usage-based - default 0)",
+    "match_query": "type = aws_launch_configuration and service_class = cpu_credits and instance_family = t4g and os = linux",
+    "usage": {
+      "time": 0
+    }
+  },
+  {
+    "description": "AWS Launch Configuration root block device storage (standalone configs show $0, priced via ASG)",
+    "match_query": "type = aws_launch_configuration and service_class = root_block_device_storage",
+    "usage": {
+      "data": 0
+    }
+  },
+  {
+    "description": "AWS Launch Configuration root block device IOPS for io1 (standalone configs show $0, priced via ASG)",
+    "match_query": "type = aws_launch_configuration and service_class = root_block_device_iops and values.root_block_device.0.volume_type = io1",
+    "usage": {
+      "operations": 0
+    }
+  },
+  {
+    "description": "AWS Launch Configuration EBS block device 0 storage (standalone configs show $0, priced via ASG)",
+    "match_query": "type = aws_launch_configuration and service_class = ebs_block_device_storage and ebs_index = 0",
+    "usage": {
+      "data": 0
+    }
+  },
+  {
+    "description": "AWS Launch Configuration EBS block device 1 storage (standalone configs show $0, priced via ASG)",
+    "match_query": "type = aws_launch_configuration and service_class = ebs_block_device_storage and ebs_index = 1",
+    "usage": {
+      "data": 0
+    }
+  },
+  {
+    "description": "AWS Launch Configuration EBS block device 2 storage (standalone configs show $0, priced via ASG)",
+    "match_query": "type = aws_launch_configuration and service_class = ebs_block_device_storage and ebs_index = 2",
+    "usage": {
+      "data": 0
+    }
+  },
+  {
+    "description": "AWS Launch Configuration EBS block device 0 IOPS for io1 (standalone configs show $0, priced via ASG)",
+    "match_query": "type = aws_launch_configuration and service_class = ebs_block_device_iops and ebs_index = 0 and values.ebs_block_device.0.volume_type = io1",
+    "usage": {
+      "operations": 0
+    }
+  },
+  {
+    "description": "AWS Launch Configuration EBS block device 1 IOPS for io1 (standalone configs show $0, priced via ASG)",
+    "match_query": "type = aws_launch_configuration and service_class = ebs_block_device_iops and ebs_index = 1 and values.ebs_block_device.1.volume_type = io1",
+    "usage": {
+      "operations": 0
+    }
+  },
+  {
+    "description": "AWS Launch Configuration EBS block device 2 IOPS for io1 (standalone configs show $0, priced via ASG)",
+    "match_query": "type = aws_launch_configuration and service_class = ebs_block_device_iops and ebs_index = 2 and values.ebs_block_device.2.volume_type = io1",
+    "usage": {
+      "operations": 0
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group instance hours - Shared tenancy Linux (730 hours * desired_capacity)",
+    "match_query": "type = aws_autoscaling_group and values.launch_template.0.id and service_class = instance and purchase_option = on_demand and os = linux and tenancy = shared",
+    "usage": {
+      "time": 730
+    },
+    "ref_filter": {
+      "ref_attr": "launch_template.0.id",
+      "pricing_key": "instance_type",
+      "value_path": "values.instance_type"
+    },
+    "ref_match": {
+      "ref_attr": "launch_template.0.id",
+      "value_path": "values.placement.0.tenancy",
+      "expected_value": "dedicated",
+      "negate": true
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group instance hours - Shared tenancy Windows (usage-based, 0 by default - Linux is default)",
+    "match_query": "type = aws_autoscaling_group and values.launch_template.0.id and service_class = instance and purchase_option = on_demand and os = windows and tenancy = shared",
+    "usage": {
+      "time": 0
+    },
+    "ref_filter": {
+      "ref_attr": "launch_template.0.id",
+      "pricing_key": "instance_type",
+      "value_path": "values.instance_type"
+    },
+    "ref_match": {
+      "ref_attr": "launch_template.0.id",
+      "value_path": "values.placement.0.tenancy",
+      "expected_value": "dedicated",
+      "negate": true
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group instance hours - Dedicated tenancy Linux (730 hours * desired_capacity)",
+    "match_query": "type = aws_autoscaling_group and values.launch_template.0.id and service_class = instance and purchase_option = on_demand and os = linux and tenancy = dedicated",
+    "usage": {
+      "time": 730
+    },
+    "ref_filter": {
+      "ref_attr": "launch_template.0.id",
+      "pricing_key": "instance_type",
+      "value_path": "values.instance_type"
+    },
+    "ref_match": {
+      "ref_attr": "launch_template.0.id",
+      "value_path": "values.placement.0.tenancy",
+      "expected_value": "dedicated",
+      "negate": false
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group instance hours - Dedicated tenancy Windows (usage-based, 0 by default - Linux is default)",
+    "match_query": "type = aws_autoscaling_group and values.launch_template.0.id and service_class = instance and purchase_option = on_demand and os = windows and tenancy = dedicated",
+    "usage": {
+      "time": 0
+    },
+    "ref_filter": {
+      "ref_attr": "launch_template.0.id",
+      "pricing_key": "instance_type",
+      "value_path": "values.instance_type"
+    },
+    "ref_match": {
+      "ref_attr": "launch_template.0.id",
+      "value_path": "values.placement.0.tenancy",
+      "expected_value": "dedicated",
+      "negate": false
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group EBS-optimized usage (730 hours * desired_capacity)",
+    "match_query": "type = aws_autoscaling_group and values.launch_template.0.id and service_class = ebs_optimized and purchase_option = on_demand",
+    "usage": {
+      "time": 730
+    },
+    "ref_filter": {
+      "ref_attr": "launch_template.0.id",
+      "pricing_key": "instance_type",
+      "value_path": "values.instance_type"
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group (launch_template) detailed monitoring (7 metrics per instance * desired_capacity)",
+    "match_query": "type = aws_autoscaling_group and values.launch_template.0.id and service_class = monitoring",
+    "usage": {
+      "operations": 7
+    },
+    "ref_match": {
+      "ref_attr": "launch_template.0.id",
+      "value_path": "values.monitoring.0.enabled",
+      "expected_value": "true",
+      "negate": false
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group (launch_configuration) detailed monitoring (7 metrics per instance * desired_capacity)",
+    "match_query": "type = aws_autoscaling_group and values.launch_configuration and service_class = monitoring",
+    "usage": {
+      "operations": 7
+    },
+    "ref_match": {
+      "ref_attr": "launch_configuration",
+      "value_path": "values.enable_monitoring",
+      "expected_value": "true",
+      "negate": false
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group (mixed_instances_policy) detailed monitoring (7 metrics per instance * desired_capacity)",
+    "match_query": "type = aws_autoscaling_group and values.mixed_instances_policy.0.launch_template.0.launch_template_specification.0.launch_template_id and service_class = monitoring",
+    "usage": {
+      "operations": 7
+    },
+    "ref_match": {
+      "ref_attr": "mixed_instances_policy.0.launch_template.0.launch_template_specification.0.launch_template_id",
+      "value_path": "values.monitoring.0.enabled",
+      "expected_value": "true",
+      "negate": false
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group CPU credits (usage-based, 0 by default)",
+    "match_query": "type = aws_autoscaling_group and service_class = cpu_credits",
+    "usage": {
+      "time": 0
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group block device 0 storage (volume_size from launch template * desired_capacity)",
+    "match_query": "type = aws_autoscaling_group and values.launch_template.0.id and service_class = block_device_storage and block_device_index = 0",
+    "usage": {
+      "data": 1
+    },
+    "ref_filter": {
+      "ref_attr": "launch_template.0.id",
+      "pricing_key": "volume_type",
+      "value_path": "values.block_device_mappings.0.ebs.0.volume_type"
+    },
+    "ref_multiplier": {
+      "ref_attr": "launch_template.0.id",
+      "value_path": "values.block_device_mappings.0.ebs.0.volume_size",
+      "divisor": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group block device 1 storage (volume_size from launch template * desired_capacity)",
+    "match_query": "type = aws_autoscaling_group and values.launch_template.0.id and service_class = block_device_storage and block_device_index = 1",
+    "usage": {
+      "data": 1
+    },
+    "ref_filter": {
+      "ref_attr": "launch_template.0.id",
+      "pricing_key": "volume_type",
+      "value_path": "values.block_device_mappings.1.ebs.0.volume_type"
+    },
+    "ref_multiplier": {
+      "ref_attr": "launch_template.0.id",
+      "value_path": "values.block_device_mappings.1.ebs.0.volume_size",
+      "divisor": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group block device 2 storage (volume_size from launch template * desired_capacity)",
+    "match_query": "type = aws_autoscaling_group and values.launch_template.0.id and service_class = block_device_storage and block_device_index = 2",
+    "usage": {
+      "data": 1
+    },
+    "ref_filter": {
+      "ref_attr": "launch_template.0.id",
+      "pricing_key": "volume_type",
+      "value_path": "values.block_device_mappings.2.ebs.0.volume_type"
+    },
+    "ref_multiplier": {
+      "ref_attr": "launch_template.0.id",
+      "value_path": "values.block_device_mappings.2.ebs.0.volume_size",
+      "divisor": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group block device 0 IOPS for io1 (iops from launch template * desired_capacity)",
+    "match_query": "type = aws_autoscaling_group and values.launch_template.0.id and service_class = block_device_iops and block_device_index = 0",
+    "usage": {
+      "operations": 1
+    },
+    "ref_filter": {
+      "ref_attr": "launch_template.0.id",
+      "pricing_key": "volume_type",
+      "value_path": "values.block_device_mappings.0.ebs.0.volume_type"
+    },
+    "ref_multiplier": {
+      "ref_attr": "launch_template.0.id",
+      "value_path": "values.block_device_mappings.0.ebs.0.iops",
+      "divisor": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group block device 1 IOPS for io1 (iops from launch template * desired_capacity)",
+    "match_query": "type = aws_autoscaling_group and values.launch_template.0.id and service_class = block_device_iops and block_device_index = 1",
+    "usage": {
+      "operations": 1
+    },
+    "ref_filter": {
+      "ref_attr": "launch_template.0.id",
+      "pricing_key": "volume_type",
+      "value_path": "values.block_device_mappings.1.ebs.0.volume_type"
+    },
+    "ref_multiplier": {
+      "ref_attr": "launch_template.0.id",
+      "value_path": "values.block_device_mappings.1.ebs.0.iops",
+      "divisor": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group block device 2 IOPS for io1 (iops from launch template * desired_capacity)",
+    "match_query": "type = aws_autoscaling_group and values.launch_template.0.id and service_class = block_device_iops and block_device_index = 2",
+    "usage": {
+      "operations": 1
+    },
+    "ref_filter": {
+      "ref_attr": "launch_template.0.id",
+      "pricing_key": "volume_type",
+      "value_path": "values.block_device_mappings.2.ebs.0.volume_type"
+    },
+    "ref_multiplier": {
+      "ref_attr": "launch_template.0.id",
+      "value_path": "values.block_device_mappings.2.ebs.0.iops",
+      "divisor": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group (launch_configuration) instance hours - Shared tenancy (730 hours * desired_capacity)",
+    "match_query": "type = aws_autoscaling_group and values.launch_configuration and service_class = instance and purchase_option = on_demand and os = linux and tenancy = shared",
+    "usage": {
+      "time": 730
+    },
+    "ref_filter": {
+      "ref_attr": "launch_configuration",
+      "pricing_key": "instance_type",
+      "value_path": "values.instance_type"
+    },
+    "ref_match": {
+      "ref_attr": "launch_configuration",
+      "value_path": "values.placement_tenancy",
+      "expected_value": "dedicated",
+      "negate": true
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group (launch_configuration) instance hours - Dedicated tenancy (730 hours * desired_capacity)",
+    "match_query": "type = aws_autoscaling_group and values.launch_configuration and service_class = instance and purchase_option = on_demand and os = linux and tenancy = dedicated",
+    "usage": {
+      "time": 730
+    },
+    "ref_filter": {
+      "ref_attr": "launch_configuration",
+      "pricing_key": "instance_type",
+      "value_path": "values.instance_type"
+    },
+    "ref_match": {
+      "ref_attr": "launch_configuration",
+      "value_path": "values.placement_tenancy",
+      "expected_value": "dedicated",
+      "negate": false
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group (launch_configuration) EBS-optimized usage (730 hours * desired_capacity)",
+    "match_query": "type = aws_autoscaling_group and values.launch_configuration and service_class = ebs_optimized and purchase_option = on_demand",
+    "usage": {
+      "time": 730
+    },
+    "ref_filter": {
+      "ref_attr": "launch_configuration",
+      "pricing_key": "instance_type",
+      "value_path": "values.instance_type"
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group (launch_configuration) root block device storage (volume_size * desired_capacity)",
+    "match_query": "type = aws_autoscaling_group and values.launch_configuration and service_class = root_block_device_storage",
+    "usage": {
+      "data": 1
+    },
+    "ref_filter": {
+      "ref_attr": "launch_configuration",
+      "pricing_key": "volume_type",
+      "value_path": "values.root_block_device.0.volume_type"
+    },
+    "ref_multiplier": {
+      "ref_attr": "launch_configuration",
+      "value_path": "values.root_block_device.0.volume_size",
+      "divisor": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group (launch_configuration) root block device IOPS for io1 (iops * desired_capacity)",
+    "match_query": "type = aws_autoscaling_group and values.launch_configuration and service_class = root_block_device_iops",
+    "usage": {
+      "operations": 1
+    },
+    "ref_filter": {
+      "ref_attr": "launch_configuration",
+      "pricing_key": "volume_type",
+      "value_path": "values.root_block_device.0.volume_type"
+    },
+    "ref_multiplier": {
+      "ref_attr": "launch_configuration",
+      "value_path": "values.root_block_device.0.iops",
+      "divisor": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group (launch_configuration) EBS block device 0 storage (volume_size * desired_capacity)",
+    "match_query": "type = aws_autoscaling_group and values.launch_configuration and service_class = ebs_block_device_storage and ebs_index = 0",
+    "usage": {
+      "data": 1
+    },
+    "ref_filter": {
+      "ref_attr": "launch_configuration",
+      "pricing_key": "volume_type",
+      "value_path": "values.ebs_block_device.0.volume_type"
+    },
+    "ref_multiplier": {
+      "ref_attr": "launch_configuration",
+      "value_path": "values.ebs_block_device.0.volume_size",
+      "divisor": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group (launch_configuration) EBS block device 1 storage (volume_size * desired_capacity)",
+    "match_query": "type = aws_autoscaling_group and values.launch_configuration and service_class = ebs_block_device_storage and ebs_index = 1",
+    "usage": {
+      "data": 1
+    },
+    "ref_filter": {
+      "ref_attr": "launch_configuration",
+      "pricing_key": "volume_type",
+      "value_path": "values.ebs_block_device.1.volume_type"
+    },
+    "ref_multiplier": {
+      "ref_attr": "launch_configuration",
+      "value_path": "values.ebs_block_device.1.volume_size",
+      "divisor": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group (launch_configuration) EBS block device 0 IOPS for io1 (iops * desired_capacity)",
+    "match_query": "type = aws_autoscaling_group and values.launch_configuration and service_class = ebs_block_device_iops and ebs_index = 0",
+    "usage": {
+      "operations": 1
+    },
+    "ref_filter": {
+      "ref_attr": "launch_configuration",
+      "pricing_key": "volume_type",
+      "value_path": "values.ebs_block_device.0.volume_type"
+    },
+    "ref_multiplier": {
+      "ref_attr": "launch_configuration",
+      "value_path": "values.ebs_block_device.0.iops",
+      "divisor": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group (launch_configuration) EBS block device 1 IOPS for io1 (iops * desired_capacity)",
+    "match_query": "type = aws_autoscaling_group and values.launch_configuration and service_class = ebs_block_device_iops and ebs_index = 1",
+    "usage": {
+      "operations": 1
+    },
+    "ref_filter": {
+      "ref_attr": "launch_configuration",
+      "pricing_key": "volume_type",
+      "value_path": "values.ebs_block_device.1.volume_type"
+    },
+    "ref_multiplier": {
+      "ref_attr": "launch_configuration",
+      "value_path": "values.ebs_block_device.1.iops",
+      "divisor": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group (mixed_instances_policy) instance hours - Shared tenancy (730 hours * desired_capacity)",
+    "match_query": "type = aws_autoscaling_group and values.mixed_instances_policy.0.launch_template.0.launch_template_specification.0.launch_template_id and service_class = instance and purchase_option = on_demand and os = linux and tenancy = shared",
+    "usage": {
+      "time": 730
+    },
+    "ref_filter": {
+      "ref_attr": "mixed_instances_policy.0.launch_template.0.launch_template_specification.0.launch_template_id",
+      "pricing_key": "instance_type",
+      "value_path": "values.instance_type"
+    },
+    "ref_match": {
+      "ref_attr": "mixed_instances_policy.0.launch_template.0.launch_template_specification.0.launch_template_id",
+      "value_path": "values.placement.0.tenancy",
+      "expected_value": "dedicated",
+      "negate": true
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group (mixed_instances_policy) instance hours - Dedicated tenancy (730 hours * desired_capacity)",
+    "match_query": "type = aws_autoscaling_group and values.mixed_instances_policy.0.launch_template.0.launch_template_specification.0.launch_template_id and service_class = instance and purchase_option = on_demand and os = linux and tenancy = dedicated",
+    "usage": {
+      "time": 730
+    },
+    "ref_filter": {
+      "ref_attr": "mixed_instances_policy.0.launch_template.0.launch_template_specification.0.launch_template_id",
+      "pricing_key": "instance_type",
+      "value_path": "values.instance_type"
+    },
+    "ref_match": {
+      "ref_attr": "mixed_instances_policy.0.launch_template.0.launch_template_specification.0.launch_template_id",
+      "value_path": "values.placement.0.tenancy",
+      "expected_value": "dedicated",
+      "negate": false
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group (mixed_instances_policy) EBS-optimized usage (730 hours * desired_capacity)",
+    "match_query": "type = aws_autoscaling_group and values.mixed_instances_policy.0.launch_template.0.launch_template_specification.0.launch_template_id and service_class = ebs_optimized and purchase_option = on_demand",
+    "usage": {
+      "time": 730
+    },
+    "ref_filter": {
+      "ref_attr": "mixed_instances_policy.0.launch_template.0.launch_template_specification.0.launch_template_id",
+      "pricing_key": "instance_type",
+      "value_path": "values.instance_type"
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group (mixed_instances_policy) block device 0 storage (volume_size from launch template * desired_capacity)",
+    "match_query": "type = aws_autoscaling_group and values.mixed_instances_policy.0.launch_template.0.launch_template_specification.0.launch_template_id and service_class = block_device_storage and block_device_index = 0",
+    "usage": {
+      "data": 1
+    },
+    "ref_filter": {
+      "ref_attr": "mixed_instances_policy.0.launch_template.0.launch_template_specification.0.launch_template_id",
+      "pricing_key": "volume_type",
+      "value_path": "values.block_device_mappings.0.ebs.0.volume_type"
+    },
+    "ref_multiplier": {
+      "ref_attr": "mixed_instances_policy.0.launch_template.0.launch_template_specification.0.launch_template_id",
+      "value_path": "values.block_device_mappings.0.ebs.0.volume_size",
+      "divisor": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group (mixed_instances_policy) block device 1 storage (volume_size from launch template * desired_capacity)",
+    "match_query": "type = aws_autoscaling_group and values.mixed_instances_policy.0.launch_template.0.launch_template_specification.0.launch_template_id and service_class = block_device_storage and block_device_index = 1",
+    "usage": {
+      "data": 1
+    },
+    "ref_filter": {
+      "ref_attr": "mixed_instances_policy.0.launch_template.0.launch_template_specification.0.launch_template_id",
+      "pricing_key": "volume_type",
+      "value_path": "values.block_device_mappings.1.ebs.0.volume_type"
+    },
+    "ref_multiplier": {
+      "ref_attr": "mixed_instances_policy.0.launch_template.0.launch_template_specification.0.launch_template_id",
+      "value_path": "values.block_device_mappings.1.ebs.0.volume_size",
+      "divisor": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group (mixed_instances_policy) block device 0 IOPS (iops from launch template * desired_capacity)",
+    "match_query": "type = aws_autoscaling_group and values.mixed_instances_policy.0.launch_template.0.launch_template_specification.0.launch_template_id and service_class = block_device_iops and block_device_index = 0",
+    "usage": {
+      "operations": 1
+    },
+    "ref_filter": {
+      "ref_attr": "mixed_instances_policy.0.launch_template.0.launch_template_specification.0.launch_template_id",
+      "pricing_key": "volume_type",
+      "value_path": "values.block_device_mappings.0.ebs.0.volume_type"
+    },
+    "ref_multiplier": {
+      "ref_attr": "mixed_instances_policy.0.launch_template.0.launch_template_specification.0.launch_template_id",
+      "value_path": "values.block_device_mappings.0.ebs.0.iops",
+      "divisor": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Autoscaling Group (mixed_instances_policy) block device 1 IOPS (iops from launch template * desired_capacity)",
+    "match_query": "type = aws_autoscaling_group and values.mixed_instances_policy.0.launch_template.0.launch_template_specification.0.launch_template_id and service_class = block_device_iops and block_device_index = 1",
+    "usage": {
+      "operations": 1
+    },
+    "ref_filter": {
+      "ref_attr": "mixed_instances_policy.0.launch_template.0.launch_template_specification.0.launch_template_id",
+      "pricing_key": "volume_type",
+      "value_path": "values.block_device_mappings.1.ebs.0.volume_type"
+    },
+    "ref_multiplier": {
+      "ref_attr": "mixed_instances_policy.0.launch_template.0.launch_template_specification.0.launch_template_id",
+      "value_path": "values.block_device_mappings.1.ebs.0.iops",
+      "divisor": 1
+    },
+    "value_multiplier": {
+      "value_path": "values.desired_capacity",
+      "divisor": 1
+    }
+  },
+  {
+    "description": "AWS Elastic IP (if unused) hourly charge (730 hours per month)",
+    "match_query": "type = aws_eip and service_class = ip_address",
+    "usage": {
+      "time": 730
+    }
+  },
+  {
+    "description": "AWS NAT Gateway hourly charge (730 hours per month)",
+    "match_query": "type = aws_nat_gateway and service_class = gateway",
+    "usage": {
+      "time": 730
+    }
+  },
+  {
+    "description": "AWS NAT Gateway data processed (usage-based, 0 by default)",
+    "match_query": "type = aws_nat_gateway and service_class = data_processed",
+    "usage": {
+      "data": 0
+    }
+  },
+  {
+    "description": "AWS VPC Endpoint (Interface) hourly charge (1 interface, no subnet_ids)",
+    "match_query": "type = aws_vpc_endpoint and service_class = endpoint_interface and not values.subnet_ids.0",
+    "usage": {
+      "time": 730
+    }
+  },
+  {
+    "description": "AWS VPC Endpoint (Interface) hourly charge (1 subnet)",
+    "match_query": "type = aws_vpc_endpoint and service_class = endpoint_interface and values.subnet_ids.0 and not values.subnet_ids.1",
+    "usage": {
+      "time": 730
+    }
+  },
+  {
+    "description": "AWS VPC Endpoint (Interface) hourly charge (2 subnets)",
+    "match_query": "type = aws_vpc_endpoint and service_class = endpoint_interface and values.subnet_ids.1 and not values.subnet_ids.2",
+    "usage": {
+      "time": 1460
+    }
+  },
+  {
+    "description": "AWS VPC Endpoint (Interface) hourly charge (3 subnets)",
+    "match_query": "type = aws_vpc_endpoint and service_class = endpoint_interface and values.subnet_ids.2 and not values.subnet_ids.3",
+    "usage": {
+      "time": 2190
+    }
+  },
+  {
+    "description": "AWS VPC Endpoint (Interface) hourly charge (4+ subnets - default to 4)",
+    "match_query": "type = aws_vpc_endpoint and service_class = endpoint_interface and values.subnet_ids.3",
+    "usage": {
+      "time": 2920
+    }
+  },
+  {
+    "description": "AWS VPC Endpoint (Interface) data processed (usage-based, 0 by default)",
+    "match_query": "type = aws_vpc_endpoint and service_class = data_processed_interface",
+    "usage": {
+      "data": 0
+    }
+  },
+  {
+    "description": "AWS VPC Endpoint (GatewayLoadBalancer) hourly charge (730 hours per month)",
+    "match_query": "type = aws_vpc_endpoint and service_class = endpoint_gwlbe",
+    "usage": {
+      "time": 730
+    }
+  },
+  {
+    "description": "AWS VPC Endpoint (GatewayLoadBalancer) data processed (usage-based, 0 by default)",
+    "match_query": "type = aws_vpc_endpoint and service_class = data_processed_gwlbe",
+    "usage": {
+      "data": 0
+    }
+  },
+  {
+    "description": "AWS VPN Connection hourly charge (730 hours per month)",
+    "match_query": "type = aws_vpn_connection and service_class = vpn_connection",
+    "usage": {
+      "time": 730
+    }
+  },
+  {
+    "description": "AWS VPN Connection Transit Gateway attachment hourly charge (only when transit_gateway_id is set)",
+    "match_query": "type = aws_vpn_connection and service_class = transit_gateway_attachment and values.transit_gateway_id",
+    "usage": {
+      "time": 730
+    }
+  },
+  {
+    "description": "AWS VPN Connection Transit Gateway data processed (usage-based, 0 by default)",
+    "match_query": "type = aws_vpn_connection and service_class = transit_gateway_data and values.transit_gateway_id",
+    "usage": {
+      "data": 0
+    }
+  },
+  {
+    "description": "AWS EC2 Transit Gateway Peering Attachment (730 hours per month)",
+    "match_query": "type = aws_ec2_transit_gateway_peering_attachment and service_class = transit_gateway_attachment",
+    "usage": {
+      "time": 730
+    }
+  },
+  {
+    "description": "AWS EC2 Transit Gateway VPC Attachment (730 hours per month)",
+    "match_query": "type = aws_ec2_transit_gateway_vpc_attachment and service_class = transit_gateway_attachment",
+    "usage": {
+      "time": 730
+    }
+  },
+  {
+    "description": "AWS EC2 Transit Gateway VPC Attachment data processed (usage-based, 0 by default)",
+    "match_query": "type = aws_ec2_transit_gateway_vpc_attachment and service_class = transit_gateway_data",
+    "usage": {
+      "data": 0
     }
   }
 ]

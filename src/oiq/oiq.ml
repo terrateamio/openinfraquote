@@ -15,24 +15,48 @@ type price_err =
 
 exception Match_err of match_err
 
+(** Extract resources and reference context from a terraform file.
+    Returns (resources with change type, reference context). *)
+let extract_resources_and_refs resource_file =
+  try
+    let json = Yojson.Safe.from_string @@ CCIO.with_in resource_file CCIO.read_all in
+    match Oiq_tf.type_ json with
+    | `Plan -> (
+        match Oiq_tf.Plan.of_yojson json with
+        | Ok plan ->
+            let resources = Oiq_tf.Plan.resources plan in
+            let just_resources = CCList.map fst resources in
+            let refs = Oiq_tf.Refs.of_yojson json just_resources in
+            Ok (resources, refs)
+        | Error err -> Error err)
+    | `State -> (
+        match Oiq_tf.State.of_yojson json with
+        | Ok state ->
+            let resources = Oiq_tf.State.resources state in
+            let refs = Oiq_tf.Refs.of_resources resources in
+            Ok (CCList.map (fun r -> (r, `Noop)) resources, refs)
+        | Error err -> Error err)
+    | `Unknown -> Error (`Invalid_resource_file_err resource_file)
+  with Yojson.Json_error _ -> Error (`Invalid_resource_file_err resource_file)
+
 let match_ ~pricesheet ~resource_files ~output =
   let open CCResult.Infix in
-  let extract_one resource_file =
-    try
-      let json = Yojson.Safe.from_string @@ CCIO.with_in resource_file CCIO.read_all in
-      match Oiq_tf.type_ json with
-      | `Plan -> Oiq_tf.Plan.of_yojson json >|= Oiq_tf.Plan.resources
-      | `State ->
-          Oiq_tf.State.of_yojson json
-          >|= CCFun.(Oiq_tf.State.resources %> CCList.map (fun r -> (r, `Noop)))
-      | `Unknown -> Error (`Invalid_resource_file_err resource_file)
-    with Yojson.Json_error _ -> Error (`Invalid_resource_file_err resource_file)
+  CCResult.map_l extract_resources_and_refs resource_files
+  >>= fun results ->
+  (* Combine all resources and merge reference contexts *)
+  let all_resources = CCList.concat_map fst results in
+  let all_refs =
+    (* For now, just use the first non-empty refs context.
+       In the future, we could merge them. *)
+    CCList.find_map
+      (fun (_, refs) ->
+        let resources = Oiq_tf.Refs.all_resources refs in
+        if CCList.is_empty resources then None else Some refs)
+      results
+    |> CCOption.get_or ~default:Oiq_tf.Refs.empty
   in
-  CCResult.map_l extract_one resource_files
-  >>= fun resources ->
-  let resources = CCList.flatten resources in
   let resource_price_acc =
-    CCList.map (fun (r, c) -> (r, c, Oiq_tf.Resource.to_match_set r, [])) resources
+    CCList.map (fun (r, c) -> (r, c, Oiq_tf.Resource.to_match_set r, [])) all_resources
   in
   CCIO.with_in pricesheet (fun in_chan ->
       let csv_stream = Csv.of_channel in_chan in
@@ -55,7 +79,10 @@ let match_ ~pricesheet ~resource_files ~output =
           CCList.map (fun (res, c, _, products) -> Oiq_match_file.Match.make res products c)
           @@ Csv.fold_left ~f:match_pricesheet ~init:resource_price_acc csv_stream
         in
-        let match_file = Oiq_match_file.make matches in
+        (* Build ref_info from the reference context *)
+        let just_resources = CCList.map fst all_resources in
+        let ref_info = Oiq_match_file.Ref_info.of_refs all_refs just_resources in
+        let match_file = Oiq_match_file.make ~ref_info matches in
         Yojson.Safe.pretty_to_channel output @@ Oiq_match_file.to_yojson match_file;
         Ok ()
       with Match_err err -> Error err)

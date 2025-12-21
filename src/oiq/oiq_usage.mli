@@ -12,6 +12,84 @@ module Usage : sig
   val operations : t -> int Oiq_range.t
   val data : t -> int Oiq_range.t
   val make : int Oiq_range.t -> t
+
+  (** Multiply all usage values by a factor *)
+  val multiply : int -> t -> t
+end
+
+(** Reference-based usage multiplier.
+    Allows usage to be multiplied by a value from a referenced resource.
+
+    For example, an ECS service's vCPU usage can be multiplied by the
+    task definition's CPU value. *)
+module Ref_multiplier : sig
+  type t [@@deriving yojson, show]
+
+  (** Look up the multiplier value from a resource using reference info.
+      Returns the multiplier value (after applying divisor), or 1 if not found. *)
+  val resolve : Oiq_tf.Refs.t -> string -> t -> int
+end
+
+(** Value-based usage multiplier.
+    Allows usage to be multiplied by a value from the resource's own attributes.
+
+    For example, an ECS service's usage can be multiplied by its desired_count. *)
+module Value_multiplier : sig
+  type t [@@deriving yojson, show]
+
+  (** Look up the multiplier value from the resource's own match set.
+      Returns the multiplier value (after applying divisor), or 1 if not found. *)
+  val resolve : Oiq_match_set.t -> t -> int
+end
+
+(** Formula-based usage multiplier.
+    Allows usage to be multiplied by a computed value from the resource's attributes.
+
+    For example, an ElastiCache replication group's node count can be calculated as:
+    (values.num_node_groups * values.replicas_per_node_group) + values.num_node_groups
+
+    Supported operators: +, -, *, /
+    Supported operands: integers and field references (e.g., values.field_name) *)
+module Formula_multiplier : sig
+  type t [@@deriving yojson, show]
+
+  (** Resolve the formula to a multiplier value.
+      Returns the computed value (after applying divisor), or 1 if evaluation fails. *)
+  val resolve : Oiq_match_set.t -> t -> int
+end
+
+(** Reference-based product filter.
+    Allows filtering products based on a value from a referenced resource.
+
+    For example, an ASG's instance pricing should only match the instance_type
+    from the referenced launch template. *)
+module Ref_filter : sig
+  type t [@@deriving yojson, show]
+
+  (** Look up the expected value from the referenced resource.
+      Returns Some value if found, None otherwise. *)
+  val resolve : Oiq_tf.Refs.t -> string -> t -> string option
+
+  (** Check if a product matches the ref filter.
+      Returns true if the product's pricing_key matches the referenced value,
+      or if the reference couldn't be resolved (fail open). *)
+  val matches : Oiq_tf.Refs.t -> string -> Oiq_match_set.t -> t -> bool
+end
+
+(** Reference-based usage entry matcher.
+    Allows a usage entry to conditionally apply based on a value from
+    a referenced resource.
+
+    For example, an ASG's dedicated tenancy pricing should only apply if
+    the referenced launch template has placement.tenancy = "dedicated". *)
+module Ref_match : sig
+  type t [@@deriving yojson, show]
+
+  (** Check if the usage entry should apply based on the referenced resource's value.
+      Returns true if:
+      - negate=false and value matches expected_value
+      - negate=true and value is missing or doesn't match expected_value *)
+  val matches : Oiq_tf.Refs.t -> string -> t -> bool
 end
 
 module Entry : sig
@@ -19,13 +97,28 @@ module Entry : sig
   type 'a t [@@deriving yojson, show]
 
   val make :
-    ?divisor:int -> description:string -> match_query:Oiq_match_query.t -> usage:'a -> unit -> 'a t
+    ?divisor:int ->
+    ?ref_multiplier:Ref_multiplier.t ->
+    ?value_multiplier:Value_multiplier.t ->
+    ?formula_multiplier:Formula_multiplier.t ->
+    ?ref_filter:Ref_filter.t ->
+    ?ref_match:Ref_match.t ->
+    description:string ->
+    match_query:Oiq_match_query.t ->
+    usage:'a ->
+    unit ->
+    'a t
 
   val usage : 'a t -> 'a
   val with_usage : 'a -> 'b t -> 'a t
   val match_query : 'a t -> Oiq_match_query.t
   val description : 'a t -> string
   val divisor : 'a t -> int option
+  val ref_multiplier : 'a t -> Ref_multiplier.t option
+  val value_multiplier : 'a t -> Value_multiplier.t option
+  val formula_multiplier : 'a t -> Formula_multiplier.t option
+  val ref_filter : 'a t -> Ref_filter.t option
+  val ref_match : 'a t -> Ref_match.t option
 
   (** Given a usage amount (this is part of pricing information) and an entry, construct a new entry
       if the usage amount lies within the range expressed in the entry. The usage of the resulting

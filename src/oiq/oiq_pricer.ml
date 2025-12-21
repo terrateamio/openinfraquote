@@ -228,6 +228,74 @@ let filter_products match_query matches =
             (Oiq_match_file.Match.change match_))
         matches
 
+(** Apply ref_multiplier to an entry if present.
+    This multiplies the usage by a value looked up from a referenced resource.
+    For example, an ECS service's vCPU usage can be multiplied by the
+    task definition's CPU value. *)
+let apply_ref_multiplier refs resource_address (entry, products) =
+  match Oiq_usage.Entry.ref_multiplier entry with
+  | Some ref_mult ->
+      let factor = Oiq_usage.Ref_multiplier.resolve refs resource_address ref_mult in
+      let usage = Oiq_usage.Entry.usage entry in
+      let multiplied = Oiq_usage.Usage.multiply factor usage in
+      (Oiq_usage.Entry.with_usage multiplied entry, products)
+  | None -> (entry, products)
+
+(** Apply value_multiplier to an entry if present.
+    This multiplies the usage by a value from the resource's own attributes.
+    For example, an ECS service's usage can be multiplied by its desired_count. *)
+let apply_value_multiplier resource_ms (entry, products) =
+  match Oiq_usage.Entry.value_multiplier entry with
+  | Some value_mult ->
+      let factor = Oiq_usage.Value_multiplier.resolve resource_ms value_mult in
+      let usage = Oiq_usage.Entry.usage entry in
+      let multiplied = Oiq_usage.Usage.multiply factor usage in
+      (Oiq_usage.Entry.with_usage multiplied entry, products)
+  | None -> (entry, products)
+
+(** Apply formula_multiplier to an entry if present.
+    This multiplies the usage by a computed value from the resource's attributes.
+    For example, an ElastiCache replication group's usage can be multiplied by
+    the calculated node count: (num_node_groups * replicas_per_node_group) + num_node_groups *)
+let apply_formula_multiplier resource_ms (entry, products) =
+  match Oiq_usage.Entry.formula_multiplier entry with
+  | Some formula_mult ->
+      let factor = Oiq_usage.Formula_multiplier.resolve resource_ms formula_mult in
+      let usage = Oiq_usage.Entry.usage entry in
+      let multiplied = Oiq_usage.Usage.multiply factor usage in
+      (Oiq_usage.Entry.with_usage multiplied entry, products)
+  | None -> (entry, products)
+
+(** Apply ref_filter to filter products based on a referenced resource's value.
+    For example, an ASG's instance pricing should only match products where
+    the instance_type matches the referenced launch template's instance_type. *)
+let apply_ref_filter refs resource_address (entry, products) =
+  match Oiq_usage.Entry.ref_filter entry with
+  | Some ref_filt ->
+      let filtered_products =
+        CCList.filter
+          (fun product ->
+            let pricing_ms = Oiq_prices.Product.pricing_match_set product in
+            Oiq_usage.Ref_filter.matches refs resource_address pricing_ms ref_filt)
+          products
+      in
+      (entry, filtered_products)
+  | None -> (entry, products)
+
+(** Apply ref_match to conditionally apply a usage entry based on a referenced
+    resource's value. Returns None if the ref_match condition is not satisfied,
+    meaning this usage entry should not be applied to the resource.
+    For example, an ASG's dedicated tenancy pricing should only apply if
+    the referenced launch template has placement.tenancy = "dedicated". *)
+let apply_ref_match refs resource_address (entry, products) =
+  match Oiq_usage.Entry.ref_match entry with
+  | Some ref_m ->
+      if Oiq_usage.Ref_match.matches refs resource_address ref_m then
+        Some (entry, products)
+      else
+        None
+  | None -> Some (entry, products)
+
 let synthesize_usage_from_attr resource_ms entry products =
   let all_attr_based =
     CCList.for_all
@@ -275,6 +343,18 @@ let synthesize_usage_from_attr resource_ms entry products =
     | None -> assert false
 
 let price' ?match_query ~usage match_file =
+  (* Build Refs context from ref_info for resolving cross-resource references.
+     This enables usage entries with ref_multiplier to look up values from
+     referenced resources (e.g., ECS service looking up task definition CPU). *)
+  let all_resources =
+    CCList.map Oiq_match_file.Match.resource
+    @@ Oiq_match_file.matches match_file
+  in
+  let refs =
+    Oiq_match_file.Ref_info.to_refs
+      (Oiq_match_file.ref_info match_file)
+      all_resources
+  in
   let priced_resources =
     let module Entry_map = CCMap.Make (struct
       type t = Oiq_usage.Usage.t option Oiq_usage.Entry.t
@@ -286,6 +366,7 @@ let price' ?match_query ~usage match_file =
     end) in
     CCList.filter_map (fun match_ ->
         let resource = Oiq_match_file.Match.resource match_ in
+        let resource_address = Oiq_tf.Resource.address resource in
         let resource_ms = Oiq_tf.Resource.to_match_set resource in
         let products = Oiq_match_file.Match.products match_ in
         let resource_products =
@@ -312,20 +393,30 @@ let price' ?match_query ~usage match_file =
           Entry_map.fold
             (fun entry products acc ->
               let priced =
-                CCList.map (fun (entry, products) ->
-                    let { Oiq_range.min = product_min, min; max = product_max, max } =
-                      price_products resource_ms entry products
-                    in
-                    {
-                      Product.price = { Oiq_range.min; max };
-                      product_max;
-                      product_min;
-                      usage = entry;
-                    })
-                @@ CCList.filter CCFun.(snd %> CCList.is_empty %> not)
-                @@ CCFun.uncurry apply_usage_amount
-                @@ CCFun.uncurry apply_provision_amount
-                @@ synthesize_usage_from_attr resource_ms entry products
+                (* First check if the ref_match condition is satisfied *)
+                match apply_ref_match refs resource_address
+                      @@ apply_ref_filter refs resource_address
+                      @@ apply_formula_multiplier resource_ms
+                      @@ apply_value_multiplier resource_ms
+                      @@ apply_ref_multiplier refs resource_address
+                      @@ synthesize_usage_from_attr resource_ms entry products
+                with
+                | None -> []  (* ref_match not satisfied, skip this entry *)
+                | Some (entry, products) ->
+                    CCList.map (fun (entry, products) ->
+                        let { Oiq_range.min = product_min, min; max = product_max, max } =
+                          price_products resource_ms entry products
+                        in
+                        {
+                          Product.price = { Oiq_range.min; max };
+                          product_max;
+                          product_min;
+                          usage = entry;
+                        })
+                    @@ CCList.filter CCFun.(snd %> CCList.is_empty %> not)
+                    @@ CCFun.uncurry apply_usage_amount
+                    @@ CCFun.uncurry apply_provision_amount
+                    @@ (entry, products)
               in
               priced @ acc)
             usage_entries
